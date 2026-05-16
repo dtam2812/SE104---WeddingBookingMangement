@@ -1,28 +1,42 @@
 import mongoose from "mongoose";
 
-mongoose.plugin((schema) => {
-  const transform = (doc, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  };
-  schema.set("toJSON", { virtuals: true, transform });
-  schema.set("toObject", { virtuals: true, transform });
+const InvoiceSchema = new mongoose.Schema(
+  {
+    wedding_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Wedding",
+      required: true,
+    },
+
+    groom_name: { type: String, required: true },
+    bride_name: { type: String, required: true },
+    wedding_date: { type: Date, required: true },
+    hall_name: { type: String, required: true },
+    table_count: { type: Number, required: true },
+
+    total_amount: { type: Number, required: true, min: 0 },
+    deposit: { type: Number, required: true, min: 0 },
+    remaining_amount: { type: Number, required: true, min: 0 },
+
+    payment_date: { type: Date },
+
+    late_days: { type: Number, default: 0, min: 0 },
+    penalty_amount: { type: Number, default: 0, min: 0 },
+
+    status: {
+      type: String,
+      enum: ["unpaid", "partial", "paid"],
+      default: "unpaid",
+    },
+  },
+  { timestamps: true },
+);
+
+InvoiceSchema.virtual("amount_due").get(function () {
+  return this.remaining_amount + this.penalty_amount;
 });
 
-export const Invoice = mongoose.model(
-  "Invoice",
-  new mongoose.Schema({
-    wedding_id: String,
-    wedding_date: String,
-    payment_date: String,
-    groom_name: String,
-    bride_name: String,
-    table_count: Number,
-    total_amount: Number,
-    deposit: Number,
-    late_days: Number,
-    penalty_amount: Number,
-    status: String,
-  }),
-  "orders",
-);
+const Invoice =
+  mongoose.models.Invoice || mongoose.model("Invoice", InvoiceSchema);
+
+export default Invoice;

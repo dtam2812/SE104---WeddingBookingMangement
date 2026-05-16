@@ -1,41 +1,60 @@
 import express from "express";
-import mongoose from "mongoose";
-import cors from "cors"; // Thêm CORS để Frontend gọi được API
+import cors from "cors";
 import dotenv from "dotenv";
+import { connectDatabase } from "./Services/connectDbService.js";
 import { seedDatabase } from "./Services/seed.js";
-import apiRouter from "./Router/routes.js";
-import { logger } from "./Middleware/logger.js";
+import authRoutes from "./Router/authRoutes.js";
+import weddingRoutes from "./Router/weddingRoutes.js";
+import invoiceRoutes from "./Router/invoiceRoutes.js";
+import userRoutes from "./Router/userRoutes.js";
+import serviceRoutes from "./Router/serviceRoutes.js";
+import foodRoutes from "./Router/foodRoutes.js";
+import hallRoutes from "./Router/hallRoutes.js";
+import hallTypeRoutes from "./Router/hallTypeRoutes.js";
+import ruleRoutes from "./Router/ruleRoutes.js";
 
 dotenv.config();
 
-const DB_URL =
-  process.env.DB_URL ||
-  "mongodb+srv://nguyenductam98765_db_user:dtam2812@cluster0.rhi4hs0.mongodb.net/WeddingManagement";
-
-mongoose
-  .connect(DB_URL)
-  .then(() => console.log("Connected to MongoDB Atlas"))
-  .catch((err) => console.error("MongoDB connection error:", err));
-
 async function startServer() {
-  // Chạy hàm tạo dữ liệu mẫu nếu DB trống
+  await connectDatabase();
+
   await seedDatabase();
 
   const app = express();
-  // Lấy PORT từ file .env (5000), nếu không có thì dùng 5000
   const PORT = process.env.PORT || 5000;
 
-  // Middleware
-  app.use(cors()); // Cho phép Frontend kết nối tới
-  app.use(express.json()); // Đọc dữ liệu JSON từ request
-  app.use(logger); // Log các request ra terminal
+  app.use(
+    cors({
+      origin: process.env.CLIENT_URL || "*",
+      methods: ["GET", "POST", "PUT", "DELETE"],
+    }),
+  );
+  app.use(express.json());
 
-  // API Routes
-  app.use("/api", apiRouter);
+  app.use("/api/auth", authRoutes);
+  app.use("/api/weddings", weddingRoutes);
+  app.use("/api/invoices", invoiceRoutes);
+  app.use("/api/users", userRoutes);
+  app.use("/api/services", serviceRoutes);
+  app.use("/api/foods", foodRoutes);
+  app.use("/api/halls", hallRoutes);
+  app.use("/api/hall-types", hallTypeRoutes);
+  app.use("/api/rules", ruleRoutes);
 
-  // Khởi động server
+  app.use((req, res) => {
+    res.status(404).json({
+      success: false,
+      message: `Route ${req.method} ${req.path} không tồn tại!`,
+    });
+  });
+
+  app.use((err, req, res, next) => {
+    console.error("Unhandled error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
+  });
+
   app.listen(PORT, () => {
-    console.log(`Server Backend đang chạy tại: http://localhost:${PORT}`);
+    console.log(`Server đang chạy tại: http://localhost:${PORT}`);
   });
 }
 

@@ -1,22 +1,23 @@
 import mongoose from "mongoose";
 
-mongoose.plugin((schema) => {
-  const transform = (doc, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  };
-  schema.set("toJSON", { virtuals: true, transform });
-  schema.set("toObject", { virtuals: true, transform });
-});
-
-export const Hall = mongoose.model(
-  "Hall",
-  new mongoose.Schema({
-    name: { type: String, required: true },
-    type_id: String,
-    type_name: String,
-    max_tables: Number,
-    status: String,
-  }),
-  "halls",
+const HallSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    type_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "HallType",
+      required: true,
+    },
+    max_tables: { type: Number, required: true, min: 1 },
+    status: {
+      type: String,
+      enum: ["available", "unavailable"],
+      default: "available",
+    },
+  },
+  { timestamps: true },
 );
+
+const Hall = mongoose.models.Hall || mongoose.model("Hall", HallSchema);
+
+export default Hall;

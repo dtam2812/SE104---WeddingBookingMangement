@@ -1,20 +1,20 @@
 import mongoose from "mongoose";
 
-mongoose.plugin((schema) => {
-  const transform = (doc, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  };
-  schema.set("toJSON", { virtuals: true, transform });
-  schema.set("toObject", { virtuals: true, transform });
-});
-
-export const Rule = mongoose.model(
-  "Rule",
-  new mongoose.Schema({
-    code: { type: String, unique: true },
-    value: String,
-    description: String,
-  }),
-  "rules",
+const RuleSchema = new mongoose.Schema(
+  {
+    code: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
+      trim: true,
+    },
+    value: { type: String, required: true },
+    description: { type: String, trim: true },
+  },
+  { timestamps: true },
 );
+
+const Rule = mongoose.models.Rule || mongoose.model("Rule", RuleSchema);
+
+export default Rule;

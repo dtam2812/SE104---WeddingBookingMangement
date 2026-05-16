@@ -1,20 +1,14 @@
 import mongoose from "mongoose";
 
-mongoose.plugin((schema) => {
-  const transform = (doc, ret) => {
-    delete ret._id;
-    delete ret.__v;
-  };
-  schema.set("toJSON", { virtuals: true, transform });
-  schema.set("toObject", { virtuals: true, transform });
-});
-
-export const Food = mongoose.model(
-  "Food",
-  new mongoose.Schema({
-    name: { type: String, required: true },
-    price: Number,
-    notes: String,
-  }),
-  "foods",
+const FoodSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    price: { type: Number, required: true, min: 0 },
+    notes: { type: String, trim: true },
+  },
+  { timestamps: true },
 );
+
+const Food = mongoose.models.Food || mongoose.model("Food", FoodSchema);
+
+export default Food;
