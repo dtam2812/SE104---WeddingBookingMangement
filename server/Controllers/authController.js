@@ -18,12 +18,10 @@ export const login = async (req, res) => {
         token: "mock_token_" + Math.random().toString(36).substring(2),
       });
     } else {
-      res
-        .status(401)
-        .json({
-          success: false,
-          message: "Tài khoản hoặc mật khẩu không đúng!",
-        });
+      res.status(401).json({
+        success: false,
+        message: "Tài khoản hoặc mật khẩu không đúng!",
+      });
     }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
