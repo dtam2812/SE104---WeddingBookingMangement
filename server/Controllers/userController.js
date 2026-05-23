@@ -27,17 +27,37 @@ export const getById = async (req, res) => {
 
 export const create = async (req, res) => {
   try {
-    const body = { ...req.body };
+    const { username, password, full_name, phone, email, role, status } =
+      req.body;
 
-    if (!body.password) {
+    if (!username || !username.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Vui lòng nhập tên tài khoản!" });
+    }
+    if (!full_name || !full_name.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Vui lòng nhập họ tên!" });
+    }
+    if (!password || !password.trim()) {
       return res
         .status(400)
         .json({ success: false, message: "Vui lòng nhập mật khẩu!" });
     }
 
-    body.password = await bcrypt.hash(body.password, SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const doc = await User.create(body);
+    const doc = await User.create({
+      username: username.trim(),
+      password: hashedPassword,
+      full_name: full_name.trim(),
+      phone: phone?.trim() || "",
+      email: email?.trim() || "",
+      role: role || "staff",
+      status: status || "active",
+    });
+
     const result = doc.toJSON();
     delete result.password;
 
@@ -57,14 +77,28 @@ export const create = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
-    const body = { ...req.body };
+    const { password, full_name, phone, email, role, status } = req.body;
 
-    if (body.password) {
-      body.password = await bcrypt.hash(body.password, SALT_ROUNDS);
+    const updateData = {};
+
+    if (full_name && full_name.trim()) updateData.full_name = full_name.trim();
+    if (phone !== undefined) updateData.phone = phone.trim();
+    if (email !== undefined) updateData.email = email.trim();
+    if (role) updateData.role = role;
+    if (status) updateData.status = status;
+
+    if (password && password.trim()) {
+      updateData.password = await bcrypt.hash(password.trim(), SALT_ROUNDS);
     }
 
-    const doc = await User.findByIdAndUpdate(req.params.id, body, {
-      new: true,
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Không có dữ liệu nào để cập nhật!" });
+    }
+
+    const doc = await User.findByIdAndUpdate(req.params.id, updateData, {
+      returnDocument: "after",
       runValidators: true,
     }).select("-password");
 
@@ -73,6 +107,7 @@ export const update = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Không tìm thấy người dùng!" });
     }
+
     res.json({ success: true, data: doc });
   } catch (err) {
     if (err.code === 11000) {

@@ -1,6 +1,7 @@
 import { HallType } from "../Models/index.js";
 import { Invoice } from "../Models/index.js";
 import { Rule } from "../Models/index.js";
+import { Wedding } from "../Models/index.js";
 
 export const getAll = async (req, res) => {
   try {
@@ -58,7 +59,7 @@ export const getRevenueReport = async (req, res) => {
 };
 
 export const create = async (req, res) => {
-  const { wedding_id, payment_date } = req.body;
+  const { wedding_id, table_count, payment_date } = req.body;
 
   if (!wedding_id) {
     return res
@@ -74,14 +75,21 @@ export const create = async (req, res) => {
         .json({ success: false, message: "Không tìm thấy tiệc cưới!" });
     }
 
+    // ✅ FIX: Dùng table_count thực tế từ request, fallback về wedding.table_count
+    const actualTableCount =
+      table_count && Number(table_count) > 0
+        ? Number(table_count)
+        : wedding.table_count;
+
     const penaltyRule = await Rule.findOne({ code: "PENALTY_RATE" });
     const penaltyRate = penaltyRule ? Number(penaltyRule.value) : 0.01;
 
+    // ✅ FIX: Tính foodTotal dùng actualTableCount thay vì wedding.table_count
     const foodTotal =
       (wedding.foods || []).reduce(
-        (sum, f) => sum + f.price * (f.quantity || 1),
+        (sum, f) => sum + (f.booked_price || f.price) * (f.quantity || 1),
         0,
-      ) * wedding.table_count;
+      ) * actualTableCount;
 
     // Tính tổng tiền dịch vụ
     const serviceTotal = (wedding.services || []).reduce(
@@ -113,7 +121,8 @@ export const create = async (req, res) => {
       bride_name: wedding.bride_name,
       wedding_date: wedding.wedding_date,
       hall_name: wedding.hall_name,
-      table_count: wedding.table_count,
+      // ✅ FIX: Lưu số bàn thực tế
+      table_count: actualTableCount,
       // Tài chính
       total_amount,
       deposit: wedding.deposit || 0,

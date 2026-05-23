@@ -4,9 +4,6 @@ import { User } from "../models/index.js";
 
 const SALT_ROUNDS = 10;
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
-
 export const login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -42,7 +39,9 @@ export const login = async (req, res) => {
     }
 
     const payload = { id: user.id, role: user.role };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || "8h",
+    });
 
     const userObj = user.toJSON();
     delete userObj.password;

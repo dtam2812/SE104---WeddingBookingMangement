@@ -38,7 +38,7 @@ export const create = async (req, res) => {
 export const update = async (req, res) => {
   try {
     const doc = await HallType.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
     if (!doc) {

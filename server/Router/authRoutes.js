@@ -4,6 +4,6 @@ import { authenticate, authorize } from "../Middleware/AuthMiddleware.js";
 
 const authRoutes = express.Router();
 
-authRoutes.post("/login", authenticate, login);
+authRoutes.post("/login", login);
 
 export default authRoutes;

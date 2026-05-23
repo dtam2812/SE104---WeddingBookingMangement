@@ -76,8 +76,19 @@ export const create = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
+    if (req.body.status) {
+      const statusMap = {
+        Active: "available",
+        active: "available",
+        Inactive: "unavailable",
+        inactive: "unavailable",
+        maintaining: "unavailable",
+      };
+      req.body.status = statusMap[req.body.status] ?? req.body.status;
+    }
+
     const doc = await Hall.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     }).populate(POPULATE_TYPE);
 

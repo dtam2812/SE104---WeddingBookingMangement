@@ -1,6 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import { connectDatabase } from "./Services/connectDbService.js";
 import { seedDatabase } from "./Services/seed.js";
 import authRoutes from "./Router/authRoutes.js";
@@ -12,8 +14,6 @@ import foodRoutes from "./Router/foodRoutes.js";
 import hallRoutes from "./Router/hallRoutes.js";
 import hallTypeRoutes from "./Router/hallTypeRoutes.js";
 import ruleRoutes from "./Router/ruleRoutes.js";
-
-dotenv.config();
 
 async function startServer() {
   await connectDatabase();
