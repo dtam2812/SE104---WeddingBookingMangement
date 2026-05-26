@@ -1,0 +1,945 @@
+import { useState, useEffect } from "react";
+import { Search, Plus, Trash2 } from "lucide-react";
+import axios from "../common";
+
+export default function Weddings() {
+  const [weddings, setWeddings] = useState([]);
+  const [halls, setHalls] = useState([]);
+  const [foods, setFoods] = useState([]);
+  const [services, setServices] = useState([]);
+  const [search, setSearch] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [filterHall, setFilterHall] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [viewingWedding, setViewingWedding] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const [formData, setFormData] = useState({
+    groom_name: "",
+    bride_name: "",
+    phone: "",
+    wedding_date: "",
+    shift: "",
+    hall_id: "",
+    table_count: "",
+    reserve_table_count: "0",
+    deposit: "",
+  });
+
+  const [selectedFoods, setSelectedFoods] = useState([]);
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [foodInput, setFoodInput] = useState("");
+  const [serviceInput, setServiceInput] = useState("");
+  const [serviceQty, setServiceQty] = useState(1);
+
+  const [isSearchHallModalOpen, setIsSearchHallModalOpen] = useState(false);
+  const [searchHallData, setSearchHallData] = useState({ date: "", shift: "" });
+  const [availableHalls, setAvailableHalls] = useState(null);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  useEffect(() => {
+    fetchWeddings();
+    fetchHalls();
+    fetchFoods();
+    fetchServices();
+  }, []);
+
+  const fetchWeddings = async () => {
+    const res = await axios.get("/api/weddings");
+    setWeddings(res.data.data || []);
+  };
+
+  const fetchHalls = async () => {
+    const res = await axios.get("/api/halls");
+    setHalls(res.data.data || []);
+  };
+
+  const fetchFoods = async () => {
+    const res = await axios.get("/api/foods");
+    setFoods(res.data.data || []);
+  };
+
+  const fetchServices = async () => {
+    const res = await axios.get("/api/services");
+    setServices(res.data.data || []);
+  };
+
+  const handleSearchHall = async (e) => {
+    e.preventDefault();
+    const res = await axios.get(
+      `/api/halls/available?date=${searchHallData.date}&shift=${searchHallData.shift}`,
+    );
+    setAvailableHalls(res.data.data || []);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      ...formData,
+      foods: selectedFoods,
+      services: selectedServices,
+    };
+    if (editingId) {
+      await axios.put(`/api/weddings/${editingId}`, payload);
+    } else {
+      await axios.post("/api/weddings", payload);
+    }
+    setIsModalOpen(false);
+    fetchWeddings();
+  };
+
+  const handleEdit = (wedding) => {
+    setEditingId(wedding.id);
+    setFormData({
+      groom_name: wedding.groom_name,
+      bride_name: wedding.bride_name,
+      phone: wedding.phone,
+      wedding_date: wedding.wedding_date,
+      shift: wedding.shift,
+      hall_id: wedding.hall_id.toString(),
+      table_count: wedding.table_count.toString(),
+      reserve_table_count: wedding.reserve_table_count.toString(),
+      deposit: wedding.deposit.toString(),
+    });
+    setSelectedFoods(wedding.foods || []);
+    setSelectedServices(wedding.services || []);
+    setIsModalOpen(true);
+  };
+
+  const handleView = (wedding) => {
+    setViewingWedding(wedding);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (confirm("Bạn có chắc chắn muốn xóa tiệc cưới này?")) {
+      await axios.delete(`/api/weddings/${id}`);
+      fetchWeddings();
+    }
+  };
+
+  const openNewModal = () => {
+    setEditingId(null);
+    setFormData({
+      groom_name: "",
+      bride_name: "",
+      phone: "",
+      wedding_date: "",
+      shift: "",
+      hall_id: "",
+      table_count: "",
+      reserve_table_count: "0",
+      deposit: "",
+    });
+    setSelectedFoods([]);
+    setSelectedServices([]);
+    setIsModalOpen(true);
+  };
+
+  const addFood = () => {
+    const food = foods.find((f) => f.id.toString() === foodInput);
+    if (food && !selectedFoods.find((f) => f.id === food.id)) {
+      setSelectedFoods([...selectedFoods, { ...food }]);
+    }
+    setFoodInput("");
+  };
+
+  const addService = () => {
+    const service = services.find((s) => s.id.toString() === serviceInput);
+    if (service && !selectedServices.find((s) => s.id === service.id)) {
+      setSelectedServices([
+        ...selectedServices,
+        { ...service, quantity: serviceQty },
+      ]);
+    }
+    setServiceInput("");
+    setServiceQty(1);
+  };
+
+  const filteredWeddings = weddings.filter((w) => {
+    const matchSearch =
+      w.groom_name.toLowerCase().includes(search.toLowerCase()) ||
+      w.bride_name.toLowerCase().includes(search.toLowerCase()) ||
+      w.phone.includes(search) ||
+      w.hall_name.toLowerCase().includes(search.toLowerCase());
+
+    let matchMonth = true,
+      matchYear = true,
+      matchDate = true,
+      matchHall = true;
+
+    if (w.wedding_date) {
+      const dateObj = new Date(w.wedding_date);
+      if (filterMonth)
+        matchMonth = (dateObj.getMonth() + 1).toString() === filterMonth;
+      if (filterYear)
+        matchYear = dateObj.getFullYear().toString() === filterYear;
+      if (filterDate) matchDate = w.wedding_date === filterDate;
+    }
+    if (filterHall) matchHall = w.hall_id.toString() === filterHall.toString();
+
+    return matchSearch && matchMonth && matchYear && matchDate && matchHall;
+  });
+
+  const totalPages = Math.ceil(filteredWeddings.length / itemsPerPage);
+  const currentWeddings = filteredWeddings.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-slate-800 uppercase">
+          QUẢN LÝ ĐẶT TIỆC CƯỚI
+        </h1>
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <input
+              type="text"
+              placeholder="Tìm kiếm tiệc..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full sm:w-48 pl-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+            />
+            <Search
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={16}
+            />
+          </div>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => {
+              setFilterDate(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+            title="Ngày tổ chức"
+          />
+          <select
+            value={filterHall}
+            onChange={(e) => {
+              setFilterHall(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+          >
+            <option value="">Tất cả sảnh</option>
+            {halls.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              setSearchHallData({ date: "", shift: "" });
+              setAvailableHalls(null);
+              setIsSearchHallModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
+          >
+            <Search size={16} /> Tra cứu sảnh trống
+          </button>
+          <button
+            onClick={openNewModal}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
+          >
+            <Plus size={16} /> Thêm Tiệc Cưới
+          </button>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-base font-semibold text-slate-800">
+          Danh sách tiệc cưới
+        </h2>
+        <span className="text-sm font-medium text-slate-600">
+          Tổng số tiệc: {filteredWeddings.length}
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
+              <th className="py-4 px-4 font-semibold">MÃ SỐ TIỆC</th>
+              <th className="py-4 px-4 font-semibold">TÊN CHÚ RỂ</th>
+              <th className="py-4 px-4 font-semibold">TÊN CÔ DÂU</th>
+              <th className="py-4 px-4 font-semibold">SĐT</th>
+              <th className="py-4 px-4 font-semibold">SẢNH</th>
+              <th className="py-4 px-4 font-semibold">NGÀY</th>
+              <th className="py-4 px-4 font-semibold">CA</th>
+              <th className="py-4 px-4 font-semibold">SỐ LƯỢNG BÀN</th>
+              <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {currentWeddings.map((wedding) => (
+              <tr
+                key={wedding.id}
+                className="hover:bg-slate-50 transition-colors text-sm"
+              >
+                <td className="py-4 px-4 font-medium text-slate-800">
+                  TC{wedding.id.toString().padStart(3, "0")}
+                </td>
+                <td className="py-4 px-4 text-slate-800">
+                  {wedding.groom_name}
+                </td>
+                <td className="py-4 px-4 text-slate-800">
+                  {wedding.bride_name}
+                </td>
+                <td className="py-4 px-4 text-slate-600">{wedding.phone}</td>
+                <td className="py-4 px-4 text-slate-600">
+                  {wedding.hall_name}
+                </td>
+                <td className="py-4 px-4 text-slate-600">
+                  {wedding.wedding_date}
+                </td>
+                <td className="py-4 px-4 text-slate-600">{wedding.shift}</td>
+                <td className="py-4 px-4 text-slate-600">
+                  {wedding.table_count}
+                </td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => handleView(wedding)}
+                      className="px-3 py-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded text-xs font-medium transition-colors"
+                    >
+                      Xem
+                    </button>
+                    {user?.role === "admin" && (
+                      <>
+                        <button
+                          onClick={() => handleEdit(wedding)}
+                          className="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => handleDelete(wedding.id)}
+                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
+                        >
+                          Xóa
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {currentWeddings.length === 0 && (
+              <tr>
+                <td colSpan={9} className="py-8 text-center text-slate-500">
+                  Không tìm thấy tiệc cưới nào.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+          >
+            «
+          </button>
+          {Array.from({ length: totalPages }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${currentPage === i + 1 ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+          >
+            »
+          </button>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex-shrink-0">
+              <h2 className="text-xl font-bold text-slate-800">
+                {editingId ? "Chỉnh Sửa Tiệc Cưới" : "Thêm Tiệc Cưới Mới"}
+              </h2>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <form
+                id="weddingForm"
+                onSubmit={handleSubmit}
+                className="space-y-6"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Tên chú rể
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.groom_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, groom_name: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Tên cô dâu
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.bride_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, bride_name: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Số điện thoại
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Ngày đãi tiệc
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.wedding_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          wedding_date: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Ca
+                    </label>
+                    <select
+                      required
+                      value={formData.shift}
+                      onChange={(e) =>
+                        setFormData({ ...formData, shift: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    >
+                      <option value="">Chọn ca</option>
+                      <option value="Trưa">Trưa</option>
+                      <option value="Tối">Tối</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Sảnh
+                    </label>
+                    <select
+                      required
+                      value={formData.hall_id}
+                      onChange={(e) =>
+                        setFormData({ ...formData, hall_id: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    >
+                      <option value="">Chọn sảnh</option>
+                      {halls.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name} (Tối đa {h.max_tables} bàn)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Số lượng bàn
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={formData.table_count}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          table_count: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Số bàn dự trữ
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.reserve_table_count}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reserve_table_count: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Tiền đặt cọc (VNĐ)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={formData.deposit}
+                      onChange={(e) =>
+                        setFormData({ ...formData, deposit: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 pt-6">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                    Thực đơn
+                  </h3>
+                  <div className="flex gap-3 mb-4">
+                    <select
+                      value={foodInput}
+                      onChange={(e) => setFoodInput(e.target.value)}
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    >
+                      <option value="">Chọn món ăn</option>
+                      {foods.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name} - {f.price.toLocaleString("vi-VN")} đ
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={addFood}
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors"
+                    >
+                      Thêm món
+                    </button>
+                  </div>
+                  {selectedFoods.length > 0 && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <ul className="space-y-2">
+                        {selectedFoods.map((f, idx) => (
+                          <li
+                            key={idx}
+                            className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm"
+                          >
+                            <span className="font-medium">{f.name}</span>
+                            <div className="flex items-center gap-4">
+                              <span className="text-emerald-600 font-medium">
+                                {(f.booked_price || f.price).toLocaleString(
+                                  "vi-VN",
+                                )}{" "}
+                                đ
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedFoods(
+                                    selectedFoods.filter((_, i) => i !== idx),
+                                  )
+                                }
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-slate-100 pt-6">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                    Dịch vụ
+                  </h3>
+                  <div className="flex gap-3 mb-4">
+                    <select
+                      value={serviceInput}
+                      onChange={(e) => setServiceInput(e.target.value)}
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    >
+                      <option value="">Chọn dịch vụ</option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} - {s.price.toLocaleString("vi-VN")} đ
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      value={serviceQty}
+                      onChange={(e) => setServiceQty(parseInt(e.target.value))}
+                      className="w-24 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                      placeholder="SL"
+                    />
+                    <button
+                      type="button"
+                      onClick={addService}
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors"
+                    >
+                      Thêm DV
+                    </button>
+                  </div>
+                  {selectedServices.length > 0 && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <ul className="space-y-2">
+                        {selectedServices.map((s, idx) => (
+                          <li
+                            key={idx}
+                            className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm"
+                          >
+                            <span className="font-medium">
+                              {s.name} (x{s.quantity})
+                            </span>
+                            <div className="flex items-center gap-4">
+                              <span className="text-emerald-600 font-medium">
+                                {(
+                                  (s.booked_price || s.price) * s.quantity
+                                ).toLocaleString("vi-VN")}{" "}
+                                đ
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedServices(
+                                    selectedServices.filter(
+                                      (_, i) => i !== idx,
+                                    ),
+                                  )
+                                }
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </form>
+            </div>
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 flex-shrink-0 bg-slate-50 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                form="weddingForm"
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors"
+              >
+                Lưu Tiệc Cưới
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
+      {isViewModalOpen && viewingWedding && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
+              <h2 className="text-xl font-bold text-slate-800">
+                Chi Tiết Tiệc Cưới: TC
+                {viewingWedding.id.toString().padStart(3, "0")}
+              </h2>
+              <button
+                onClick={() => setIsViewModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-y-4 gap-x-8 mb-8">
+                <div>
+                  <span className="text-slate-500">Chú rể:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.groom_name}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Cô dâu:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.bride_name}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Điện thoại:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.phone}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Ngày tiệc:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.wedding_date}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Ca:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.shift}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Sảnh:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.hall_name}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Số bàn:</span>{" "}
+                  <span className="font-medium text-slate-800 ml-2">
+                    {viewingWedding.table_count}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Tiền cọc:</span>{" "}
+                  <span className="font-medium text-emerald-600 ml-2">
+                    {viewingWedding.deposit.toLocaleString("vi-VN")} đ
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">
+                  Thực đơn
+                </h3>
+                {viewingWedding.foods && viewingWedding.foods.length > 0 ? (
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="p-3 font-medium text-slate-600 rounded-l-lg">
+                          Tên món
+                        </th>
+                        <th className="p-3 font-medium text-slate-600 text-right rounded-r-lg">
+                          Đơn giá
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {viewingWedding.foods.map((f, i) => (
+                        <tr key={i}>
+                          <td className="p-3 text-slate-800">{f.name}</td>
+                          <td className="p-3 text-slate-800 text-right font-medium">
+                            {f.booked_price.toLocaleString("vi-VN")} đ
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-slate-500 italic">Chưa có món ăn</p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">
+                  Dịch vụ
+                </h3>
+                {viewingWedding.services &&
+                viewingWedding.services.length > 0 ? (
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="p-3 font-medium text-slate-600 rounded-l-lg">
+                          Tên dịch vụ
+                        </th>
+                        <th className="p-3 font-medium text-slate-600 text-center">
+                          Số lượng
+                        </th>
+                        <th className="p-3 font-medium text-slate-600 text-right rounded-r-lg">
+                          Thành tiền
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {viewingWedding.services.map((s, i) => (
+                        <tr key={i}>
+                          <td className="p-3 text-slate-800">{s.name}</td>
+                          <td className="p-3 text-slate-800 text-center">
+                            {s.quantity}
+                          </td>
+                          <td className="p-3 text-slate-800 text-right font-medium">
+                            {(s.booked_price * s.quantity).toLocaleString(
+                              "vi-VN",
+                            )}{" "}
+                            đ
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-slate-500 italic">Chưa có dịch vụ</p>
+                )}
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-100 flex justify-end bg-slate-50 rounded-b-2xl">
+              <button
+                onClick={() => setIsViewModalOpen(false)}
+                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Hall Modal */}
+      {isSearchHallModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-800">
+                Tra Cứu Sảnh Trống
+              </h2>
+              <button
+                onClick={() => setIsSearchHallModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleSearchHall} className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Ngày
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={searchHallData.date}
+                    onChange={(e) =>
+                      setSearchHallData({
+                        ...searchHallData,
+                        date: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Ca
+                  </label>
+                  <select
+                    required
+                    value={searchHallData.shift}
+                    onChange={(e) =>
+                      setSearchHallData({
+                        ...searchHallData,
+                        shift: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                  >
+                    <option value="">Chọn ca</option>
+                    <option value="Trưa">Trưa</option>
+                    <option value="Tối">Tối</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors"
+                >
+                  Tra cứu
+                </button>
+              </form>
+
+              {availableHalls !== null && (
+                <div>
+                  <h3 className="font-semibold text-slate-800 mb-3">
+                    Kết quả tra cứu:
+                  </h3>
+                  {availableHalls.length > 0 ? (
+                    <ul className="space-y-2">
+                      {availableHalls.map((h) => (
+                        <li
+                          key={h.id}
+                          className="p-3 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-100 flex justify-between items-center"
+                        >
+                          <span className="font-medium">{h.name}</span>
+                          <span className="text-sm">
+                            Tối đa {h.max_tables} bàn
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-4 bg-red-50 text-red-600 rounded-lg text-center">
+                      Không có sảnh trống trong thời gian này.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
