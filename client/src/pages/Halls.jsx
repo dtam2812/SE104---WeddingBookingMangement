@@ -328,7 +328,7 @@ export default function Halls() {
                   }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 >
-                  {/* ✅ đúng enum Model */}
+                  {/*  enum Model */}
                   {statusOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
