@@ -1,9 +1,16 @@
 import { Wedding, Hall } from "../Models/index.js";
 
+const formatWedding = (w) => ({
+  ...w,
+  id: w._id.toString(),
+  hall_id: w.hall_id ? w.hall_id.toString() : null,
+});
+
 export const getAll = async (req, res) => {
   try {
-    const data = await Wedding.find();
-    res.json({ data });
+    const data = await Wedding.find().lean();
+    const formatted = data.map(formatWedding);
+    res.json({ data: formatted });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -19,7 +26,7 @@ export const create = async (req, res) => {
     }
 
     const doc = await Wedding.create(body);
-    res.json({ success: true, id: doc.id });
+    res.json({ success: true, id: doc._id.toString() });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

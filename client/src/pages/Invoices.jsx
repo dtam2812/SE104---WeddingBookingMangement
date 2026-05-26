@@ -37,7 +37,8 @@ export default function Invoices() {
 
   const fetchInvoices = async () => {
     const res = await axios.get("/api/invoices");
-    setInvoices(res.data.data || []);
+    const data = res.data.data || [];
+    setInvoices(data.map((inv, idx) => ({ ...inv, display_num: idx + 1 })));
   };
 
   const fetchWeddings = async () => {
@@ -202,7 +203,7 @@ export default function Invoices() {
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
                 <td className="py-4 px-4 font-medium text-slate-800">
-                  HD{(invoice.id || "").toString().padStart(3, "0")}
+                  HD{invoice.display_num.toString().padStart(3, "0")}
                 </td>
                 <td className="py-4 px-4 text-slate-600">
                   TC{(invoice.wedding_id || "").toString().padStart(3, "0")}

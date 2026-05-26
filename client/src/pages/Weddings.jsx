@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import { Search, Plus, Trash2 } from "lucide-react";
 import axios from "../common";
 
+// Format YYYY-MM-DD -> DD/MM/YYYY
+const formatDateVN = (dateStr) => {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+};
+
 export default function Weddings() {
   const [weddings, setWeddings] = useState([]);
   const [halls, setHalls] = useState([]);
@@ -100,9 +107,9 @@ export default function Weddings() {
       groom_name: wedding.groom_name,
       bride_name: wedding.bride_name,
       phone: wedding.phone,
-      wedding_date: wedding.wedding_date,
+      wedding_date: wedding.wedding_date, // YYYY-MM-DD cho input[type=date]
       shift: wedding.shift,
-      hall_id: wedding.hall_id.toString(),
+      hall_id: wedding.hall_id ? wedding.hall_id.toString() : "",
       table_count: wedding.table_count.toString(),
       reserve_table_count: wedding.reserve_table_count.toString(),
       deposit: wedding.deposit.toString(),
@@ -167,7 +174,7 @@ export default function Weddings() {
       w.groom_name.toLowerCase().includes(search.toLowerCase()) ||
       w.bride_name.toLowerCase().includes(search.toLowerCase()) ||
       w.phone.includes(search) ||
-      w.hall_name.toLowerCase().includes(search.toLowerCase());
+      (w.hall_name || "").toLowerCase().includes(search.toLowerCase());
 
     let matchMonth = true,
       matchYear = true,
@@ -182,7 +189,8 @@ export default function Weddings() {
         matchYear = dateObj.getFullYear().toString() === filterYear;
       if (filterDate) matchDate = w.wedding_date === filterDate;
     }
-    if (filterHall) matchHall = w.hall_id.toString() === filterHall.toString();
+    if (filterHall)
+      matchHall = (w.hall_id || "").toString() === filterHall.toString();
 
     return matchSearch && matchMonth && matchYear && matchDate && matchHall;
   });
@@ -193,8 +201,24 @@ export default function Weddings() {
     currentPage * itemsPerPage,
   );
 
+  // Tính tổng tiền tiệc
+  const calcTotal = (wedding) => {
+    if (!wedding) return 0;
+    const foodTotal = (wedding.foods || []).reduce(
+      (sum, f) => sum + (f.booked_price || f.price || 0),
+      0,
+    );
+    const serviceTotal = (wedding.services || []).reduce(
+      (sum, s) => sum + (s.booked_price || s.price || 0) * (s.quantity || 1),
+      0,
+    );
+    const tableTotal = (wedding.table_count || 0) * foodTotal;
+    return serviceTotal + tableTotal;
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-800 uppercase">
           QUẢN LÝ ĐẶT TIỆC CƯỚI
@@ -269,19 +293,20 @@ export default function Weddings() {
         </span>
       </div>
 
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
-              <th className="py-4 px-4 font-semibold">MÃ SỐ TIỆC</th>
-              <th className="py-4 px-4 font-semibold">TÊN CHÚ RỂ</th>
-              <th className="py-4 px-4 font-semibold">TÊN CÔ DÂU</th>
+              <th className="py-4 px-4 font-semibold">Mã tiệc</th>
+              <th className="py-4 px-4 font-semibold">Chú rể</th>
+              <th className="py-4 px-4 font-semibold">Cô dâu</th>
               <th className="py-4 px-4 font-semibold">SĐT</th>
-              <th className="py-4 px-4 font-semibold">SẢNH</th>
-              <th className="py-4 px-4 font-semibold">NGÀY</th>
-              <th className="py-4 px-4 font-semibold">CA</th>
-              <th className="py-4 px-4 font-semibold">SỐ LƯỢNG BÀN</th>
-              <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
+              <th className="py-4 px-4 font-semibold">Sảnh</th>
+              <th className="py-4 px-4 font-semibold">Ngày</th>
+              <th className="py-4 px-4 font-semibold">Ca</th>
+              <th className="py-4 px-4 font-semibold">Số bàn</th>
+              <th className="py-4 px-4 font-semibold text-center">Hành động</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -304,7 +329,7 @@ export default function Weddings() {
                   {wedding.hall_name}
                 </td>
                 <td className="py-4 px-4 text-slate-600">
-                  {wedding.wedding_date}
+                  {formatDateVN(wedding.wedding_date)}
                 </td>
                 <td className="py-4 px-4 text-slate-600">{wedding.shift}</td>
                 <td className="py-4 px-4 text-slate-600">
@@ -349,6 +374,7 @@ export default function Weddings() {
         </table>
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-2 mt-6">
           <button
@@ -362,7 +388,11 @@ export default function Weddings() {
             <button
               key={i}
               onClick={() => setCurrentPage(i + 1)}
-              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${currentPage === i + 1 ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
+                currentPage === i + 1
+                  ? "bg-slate-800 text-white"
+                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}
             >
               {i + 1}
             </button>
@@ -377,7 +407,7 @@ export default function Weddings() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* ===================== ADD/EDIT MODAL ===================== */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
@@ -541,6 +571,7 @@ export default function Weddings() {
                   </div>
                 </div>
 
+                {/* Thực đơn */}
                 <div className="border-t border-slate-100 pt-6">
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">
                     Thực đơn
@@ -601,6 +632,7 @@ export default function Weddings() {
                   )}
                 </div>
 
+                {/* Dịch vụ */}
                 <div className="border-t border-slate-100 pt-6">
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">
                     Dịch vụ
@@ -694,148 +726,168 @@ export default function Weddings() {
         </div>
       )}
 
-      {/* View Modal */}
+      {/* ===================== VIEW MODAL ===================== */}
       {isViewModalOpen && viewingWedding && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
-              <h2 className="text-xl font-bold text-slate-800">
-                Chi Tiết Tiệc Cưới: TC
-                {viewingWedding.id.toString().padStart(3, "0")}
-              </h2>
+              <div>
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">
+                  Chi tiết tiệc cưới
+                </p>
+                <h2 className="text-xl font-bold text-slate-800">
+                  TC{viewingWedding.id.toString().padStart(3, "0")} —{" "}
+                  {viewingWedding.groom_name} &amp; {viewingWedding.bride_name}
+                </h2>
+              </div>
               <button
                 onClick={() => setIsViewModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors text-lg"
               >
                 ✕
               </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-y-4 gap-x-8 mb-8">
-                <div>
-                  <span className="text-slate-500">Chú rể:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.groom_name}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Cô dâu:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.bride_name}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Điện thoại:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.phone}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Ngày tiệc:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.wedding_date}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Ca:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.shift}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Sảnh:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.hall_name}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Số bàn:</span>{" "}
-                  <span className="font-medium text-slate-800 ml-2">
-                    {viewingWedding.table_count}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Tiền cọc:</span>{" "}
-                  <span className="font-medium text-emerald-600 ml-2">
-                    {viewingWedding.deposit.toLocaleString("vi-VN")} đ
-                  </span>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              {/* Thông tin cơ bản */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                  Thông tin chung
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Chú rể", value: viewingWedding.groom_name },
+                    { label: "Cô dâu", value: viewingWedding.bride_name },
+                    { label: "Số điện thoại", value: viewingWedding.phone },
+                    {
+                      label: "Ngày tiệc",
+                      value: formatDateVN(viewingWedding.wedding_date),
+                    },
+                    { label: "Ca", value: viewingWedding.shift },
+                    { label: "Sảnh", value: viewingWedding.hall_name },
+                    {
+                      label: "Số bàn",
+                      value: `${viewingWedding.table_count} bàn${
+                        viewingWedding.reserve_table_count > 0
+                          ? ` (+${viewingWedding.reserve_table_count} dự trữ)`
+                          : ""
+                      }`,
+                    },
+                    {
+                      label: "Tiền đặt cọc",
+                      value: `${viewingWedding.deposit.toLocaleString("vi-VN")} đ`,
+                      highlight: true,
+                    },
+                  ].map(({ label, value, highlight }) => (
+                    <div
+                      key={label}
+                      className="bg-slate-50 rounded-xl p-3 flex flex-col gap-0.5"
+                    >
+                      <span className="text-xs text-slate-400">{label}</span>
+                      <span
+                        className={`font-semibold text-sm ${
+                          highlight ? "text-emerald-600" : "text-slate-800"
+                        }`}
+                      >
+                        {value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">
+              {/* Thực đơn */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
                   Thực đơn
                 </h3>
                 {viewingWedding.foods && viewingWedding.foods.length > 0 ? (
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="p-3 font-medium text-slate-600 rounded-l-lg">
-                          Tên món
-                        </th>
-                        <th className="p-3 font-medium text-slate-600 text-right rounded-r-lg">
-                          Đơn giá
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {viewingWedding.foods.map((f, i) => (
-                        <tr key={i}>
-                          <td className="p-3 text-slate-800">{f.name}</td>
-                          <td className="p-3 text-slate-800 text-right font-medium">
-                            {f.booked_price.toLocaleString("vi-VN")} đ
-                          </td>
+                  <div className="rounded-xl border border-slate-100 overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                        <tr>
+                          <th className="py-3 px-4 font-semibold">Tên món</th>
+                          <th className="py-3 px-4 font-semibold text-right">
+                            Đơn giá / bàn
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {viewingWedding.foods.map((f, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <td className="py-3 px-4 text-slate-800">
+                              {f.name}
+                            </td>
+                            <td className="py-3 px-4 text-right font-medium text-slate-800">
+                              {(f.booked_price || f.price).toLocaleString(
+                                "vi-VN",
+                              )}{" "}
+                              đ
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
-                  <p className="text-slate-500 italic">Chưa có món ăn</p>
+                  <p className="text-slate-400 italic text-sm">
+                    Chưa có món ăn
+                  </p>
                 )}
               </div>
 
+              {/* Dịch vụ */}
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
                   Dịch vụ
                 </h3>
                 {viewingWedding.services &&
                 viewingWedding.services.length > 0 ? (
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="p-3 font-medium text-slate-600 rounded-l-lg">
-                          Tên dịch vụ
-                        </th>
-                        <th className="p-3 font-medium text-slate-600 text-center">
-                          Số lượng
-                        </th>
-                        <th className="p-3 font-medium text-slate-600 text-right rounded-r-lg">
-                          Thành tiền
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {viewingWedding.services.map((s, i) => (
-                        <tr key={i}>
-                          <td className="p-3 text-slate-800">{s.name}</td>
-                          <td className="p-3 text-slate-800 text-center">
-                            {s.quantity}
-                          </td>
-                          <td className="p-3 text-slate-800 text-right font-medium">
-                            {(s.booked_price * s.quantity).toLocaleString(
-                              "vi-VN",
-                            )}{" "}
-                            đ
-                          </td>
+                  <div className="rounded-xl border border-slate-100 overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                        <tr>
+                          <th className="py-3 px-4 font-semibold">
+                            Tên dịch vụ
+                          </th>
+                          <th className="py-3 px-4 font-semibold text-center">
+                            Số lượng
+                          </th>
+                          <th className="py-3 px-4 font-semibold text-right">
+                            Thành tiền
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {viewingWedding.services.map((s, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <td className="py-3 px-4 text-slate-800">
+                              {s.name}
+                            </td>
+                            <td className="py-3 px-4 text-center text-slate-600">
+                              {s.quantity}
+                            </td>
+                            <td className="py-3 px-4 text-right font-medium text-slate-800">
+                              {(
+                                (s.booked_price || s.price) * s.quantity
+                              ).toLocaleString("vi-VN")}{" "}
+                              đ
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
-                  <p className="text-slate-500 italic">Chưa có dịch vụ</p>
+                  <p className="text-slate-400 italic text-sm">
+                    Chưa có dịch vụ
+                  </p>
                 )}
               </div>
             </div>
+
+            {/* Footer */}
             <div className="p-6 border-t border-slate-100 flex justify-end bg-slate-50 rounded-b-2xl">
               <button
                 onClick={() => setIsViewModalOpen(false)}
@@ -848,7 +900,7 @@ export default function Weddings() {
         </div>
       )}
 
-      {/* Search Hall Modal */}
+      {/* ===================== SEARCH HALL MODAL ===================== */}
       {isSearchHallModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
@@ -858,7 +910,7 @@ export default function Weddings() {
               </h2>
               <button
                 onClick={() => setIsSearchHallModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
               >
                 ✕
               </button>

@@ -10,10 +10,10 @@ import { authenticate, authorize } from "../Middleware/AuthMiddleware.js";
 
 const foodRoutes = express.Router();
 
-foodRoutes.get("/foods", getAll);
-foodRoutes.get("/foods/:id", getById);
-foodRoutes.post("/foods", authenticate, authorize("admin"), create);
-foodRoutes.put("/foods/:id", authenticate, authorize("admin"), update);
-foodRoutes.delete("/foods/:id", authenticate, authorize("admin"), remove);
+foodRoutes.get("/", getAll);
+foodRoutes.get("/:id", getById);
+foodRoutes.post("/", authenticate, authorize("admin"), create);
+foodRoutes.put("/:id", authenticate, authorize("admin"), update);
+foodRoutes.delete("/:id", authenticate, authorize("admin"), remove);
 
 export default foodRoutes;

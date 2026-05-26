@@ -24,16 +24,16 @@ export default function Foods() {
   }, []);
 
   const fetchFoods = async () => {
-    const res = await axios.get("/api/foods/foods");
+    const res = await axios.get("/api/foods");
     setFoods(res.data.data || []);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editingId) {
-      await axios.put(`/api/foods/foods/${editingId}`, formData, authHeader());
+      await axios.put(`/api/foods/${editingId}`, formData, authHeader());
     } else {
-      await axios.post("/api/foods/foods", formData, authHeader());
+      await axios.post("/api/foods", formData, authHeader());
     }
     setIsModalOpen(false);
     fetchFoods();
@@ -51,7 +51,7 @@ export default function Foods() {
 
   const handleDelete = async (id) => {
     if (confirm("Bạn có chắc chắn muốn xóa món ăn này?")) {
-      await axios.delete(`/api/foods/foods/${id}`, authHeader());
+      await axios.delete(`/api/foods/${id}`, authHeader());
       fetchFoods();
     }
   };

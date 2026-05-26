@@ -37,7 +37,7 @@ const WeddingSchema = new mongoose.Schema(
     wedding_date: { type: Date, required: true },
     shift: {
       type: String,
-      enum: ["morning", "afternoon", "evening"],
+      enum: ["Trưa", "Tối"],
       required: true,
     },
 
@@ -62,8 +62,16 @@ const WeddingSchema = new mongoose.Schema(
       default: "pending",
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
+
+WeddingSchema.virtual("id").get(function () {
+  return this._id.toHexString();
+});
 
 const Wedding =
   mongoose.models.Wedding || mongoose.model("Wedding", WeddingSchema);

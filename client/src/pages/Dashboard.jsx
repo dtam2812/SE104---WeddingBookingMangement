@@ -16,8 +16,8 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       const [weddingsRes, revenueRes] = await Promise.all([
-        axios.get("/api/weddings/weddings", authHeader()),
-        axios.get("/api/invoices/invoices/revenue", authHeader()),
+        axios.get("/api/weddings", authHeader()),
+        axios.get("/api/invoices/revenue", authHeader()),
       ]);
 
       const weddings = weddingsRes.data.data || [];
@@ -27,10 +27,9 @@ export default function Dashboard() {
         data: invoices = [],
       } = revenueRes.data;
 
-      const totalDebt = invoices.reduce(
-        (sum, inv) => sum + (inv.remaining_amount || 0),
-        0,
-      );
+      const totalDebt = invoices
+        .filter((inv) => inv.status !== "paid")
+        .reduce((sum, inv) => sum + (inv.remaining_amount || 0), 0);
       const totalActual = total_revenue - total_penalty;
 
       setStats({
