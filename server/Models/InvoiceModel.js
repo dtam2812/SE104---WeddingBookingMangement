@@ -18,10 +18,17 @@ const InvoiceSchema = new mongoose.Schema(
     deposit: { type: Number, required: true, min: 0 },
     remaining_amount: { type: Number, required: true, min: 0 },
 
+    // ✅ NEW: cumulative amount paid by customer (excluding deposit)
+    paid_amount: { type: Number, default: 0, min: 0 },
+
     payment_date: { type: Date },
 
     late_days: { type: Number, default: 0, min: 0 },
     penalty_amount: { type: Number, default: 0, min: 0 },
+
+    // ✅ NEW: whether to apply late-payment penalty for this invoice
+    //         Penalty starts 1 day after the wedding date
+    apply_penalty: { type: Boolean, default: false },
 
     status: {
       type: String,
@@ -32,8 +39,9 @@ const InvoiceSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// Total amount still owed (after deposit, partial payments, plus any penalty)
 InvoiceSchema.virtual("amount_due").get(function () {
-  return this.remaining_amount + this.penalty_amount;
+  return this.remaining_amount - this.paid_amount + this.penalty_amount;
 });
 
 const Invoice =
