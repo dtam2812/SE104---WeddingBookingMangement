@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "../common";
 
-const authHeader = () => ({
-  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-});
-
 export default function Dashboard() {
   const [stats, setStats] = useState({
     totalWeddings: 0,
@@ -15,26 +11,38 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [weddingsRes, revenueRes] = await Promise.all([
-        axios.get("/api/weddings", authHeader()),
-        axios.get("/api/invoices/revenue", authHeader()),
+      const [weddingsRes, invoicesRes] = await Promise.all([
+        axios.get("/api/weddings"),
+        axios.get("/api/invoices"),
       ]);
 
       const weddings = weddingsRes.data.data || [];
-      const {
-        total_revenue = 0,
-        total_penalty = 0,
-        data: invoices = [],
-      } = revenueRes.data;
+      const invoices = invoicesRes.data.data || [];
+
+      const totalRevenue = invoices.reduce(
+        (sum, inv) => sum + (inv.total_amount || 0) + (inv.penalty_amount || 0),
+        0,
+      );
 
       const totalDebt = invoices
         .filter((inv) => inv.status !== "paid")
-        .reduce((sum, inv) => sum + (inv.remaining_amount || 0), 0);
-      const totalActual = total_revenue - total_penalty;
+        .reduce(
+          (sum, inv) =>
+            sum +
+            ((inv.remaining_amount || 0) - (inv.paid_amount || 0)) +
+            (inv.penalty_amount || 0),
+          0,
+        );
+
+      const totalActual = invoices.reduce(
+        (sum, inv) =>
+          sum + (inv.deposit || 0) + (inv.paid_amount || 0),
+        0,
+      );
 
       setStats({
         totalWeddings: weddings.length,
-        totalRevenue: total_revenue,
+        totalRevenue,
         totalDebt,
         totalActual,
       });

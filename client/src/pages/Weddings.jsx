@@ -2,10 +2,9 @@ import { useState, useEffect } from "react";
 import { Search, Plus, Trash2 } from "lucide-react";
 import axios from "../common";
 
-// Format YYYY-MM-DD -> DD/MM/YYYY
 const formatDateVN = (dateStr) => {
   if (!dateStr) return "";
-  const [y, m, d] = dateStr.split("-");
+  const [y, m, d] = dateStr.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
 };
 
@@ -25,6 +24,8 @@ export default function Weddings() {
   const [viewingWedding, setViewingWedding] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+
+  const toDateInput = (d) => d ? d.slice(0, 10) : "";
 
   const [formData, setFormData] = useState({
     groom_name: "",
@@ -59,7 +60,8 @@ export default function Weddings() {
 
   const fetchWeddings = async () => {
     const res = await axios.get("/api/weddings");
-    setWeddings(res.data.data || []);
+    const sorted = [...(res.data.data || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    setWeddings(sorted.map((w, idx) => ({ ...w, display_num: idx + 1 })));
   };
 
   const fetchHalls = async () => {
@@ -87,18 +89,22 @@ export default function Weddings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...formData,
-      foods: selectedFoods,
-      services: selectedServices,
-    };
-    if (editingId) {
-      await axios.put(`/api/weddings/${editingId}`, payload);
-    } else {
-      await axios.post("/api/weddings", payload);
+    try {
+      const payload = {
+        ...formData,
+        foods: selectedFoods,
+        services: selectedServices,
+      };
+      if (editingId) {
+        await axios.put(`/api/weddings/${editingId}`, payload);
+      } else {
+        await axios.post("/api/weddings", payload);
+      }
+      setIsModalOpen(false);
+      fetchWeddings();
+    } catch (err) {
+      alert(err.response?.data?.message || "Có lỗi xảy ra khi lưu tiệc cưới!");
     }
-    setIsModalOpen(false);
-    fetchWeddings();
   };
 
   const handleEdit = (wedding) => {
@@ -107,7 +113,7 @@ export default function Weddings() {
       groom_name: wedding.groom_name,
       bride_name: wedding.bride_name,
       phone: wedding.phone,
-      wedding_date: wedding.wedding_date, // YYYY-MM-DD cho input[type=date]
+      wedding_date: toDateInput(wedding.wedding_date),
       shift: wedding.shift,
       hall_id: wedding.hall_id ? wedding.hall_id.toString() : "",
       table_count: wedding.table_count.toString(),
@@ -126,8 +132,12 @@ export default function Weddings() {
 
   const handleDelete = async (id) => {
     if (confirm("Bạn có chắc chắn muốn xóa tiệc cưới này?")) {
-      await axios.delete(`/api/weddings/${id}`);
-      fetchWeddings();
+      try {
+        await axios.delete(`/api/weddings/${id}`);
+        fetchWeddings();
+      } catch (err) {
+        alert(err.response?.data?.message || "Có lỗi xảy ra khi xóa tiệc cưới!");
+      }
     }
   };
 
@@ -151,18 +161,18 @@ export default function Weddings() {
 
   const addFood = () => {
     const food = foods.find((f) => f.id.toString() === foodInput);
-    if (food && !selectedFoods.find((f) => f.id === food.id)) {
-      setSelectedFoods([...selectedFoods, { ...food }]);
+    if (food && !selectedFoods.find((f) => f.food_id === food.id || f.id === food.id)) {
+      setSelectedFoods([...selectedFoods, { food_id: food.id, name: food.name, price: food.price, quantity: 1 }]);
     }
     setFoodInput("");
   };
 
   const addService = () => {
     const service = services.find((s) => s.id.toString() === serviceInput);
-    if (service && !selectedServices.find((s) => s.id === service.id)) {
+    if (service && !selectedServices.find((s) => s.service_id === service.id || s.id === service.id)) {
       setSelectedServices([
         ...selectedServices,
-        { ...service, quantity: serviceQty },
+        { service_id: service.id, name: service.name, price: service.price, quantity: serviceQty },
       ]);
     }
     setServiceInput("");
@@ -316,7 +326,7 @@ export default function Weddings() {
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
                 <td className="py-4 px-4 font-medium text-slate-800">
-                  TC{wedding.id.toString().padStart(3, "0")}
+                  TC{String(wedding.display_num).padStart(3, "0")}
                 </td>
                 <td className="py-4 px-4 text-slate-800">
                   {wedding.groom_name}
@@ -512,7 +522,20 @@ export default function Weddings() {
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     >
                       <option value="">Chọn sảnh</option>
-                      {halls.map((h) => (
+                      {halls
+                        .filter((h) => h.status !== "unavailable")
+                        .filter((h) => {
+                          if (!formData.wedding_date || !formData.shift) return true;
+                          return !weddings.find(
+                            (w) =>
+                              w.hall_id === h.id &&
+                              String(w.id) !== String(editingId) &&
+                              w.wedding_date?.slice(0, 10) === formData.wedding_date &&
+                              w.shift === formData.shift &&
+                              w.status !== "cancelled",
+                          );
+                        })
+                        .map((h) => (
                         <option key={h.id} value={h.id}>
                           {h.name} (Tối đa {h.max_tables} bàn)
                         </option>
@@ -559,12 +582,12 @@ export default function Weddings() {
                       Tiền đặt cọc (VNĐ)
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       required
-                      min="0"
-                      value={formData.deposit}
+                      value={formData.deposit ? Number(formData.deposit).toLocaleString("vi-VN") : ""}
                       onChange={(e) =>
-                        setFormData({ ...formData, deposit: e.target.value })
+                        setFormData({ ...formData, deposit: e.target.value.replace(/\D/g, "") })
                       }
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     />
@@ -583,7 +606,9 @@ export default function Weddings() {
                       className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     >
                       <option value="">Chọn món ăn</option>
-                      {foods.map((f) => (
+                      {foods
+                        .filter((f) => !selectedFoods.find((sf) => sf.food_id === f.id || sf.id === f.id))
+                        .map((f) => (
                         <option key={f.id} value={f.id}>
                           {f.name} - {f.price.toLocaleString("vi-VN")} đ
                         </option>
@@ -644,7 +669,9 @@ export default function Weddings() {
                       className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     >
                       <option value="">Chọn dịch vụ</option>
-                      {services.map((s) => (
+                      {services
+                        .filter((s) => !selectedServices.find((ss) => ss.service_id === s.id || ss.id === s.id))
+                        .map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name} - {s.price.toLocaleString("vi-VN")} đ
                         </option>
@@ -737,7 +764,7 @@ export default function Weddings() {
                   Chi tiết tiệc cưới
                 </p>
                 <h2 className="text-xl font-bold text-slate-800">
-                  TC{viewingWedding.id.toString().padStart(3, "0")} —{" "}
+                  TC{String(viewingWedding.display_num).padStart(3, "0")} —{" "}
                   {viewingWedding.groom_name} &amp; {viewingWedding.bride_name}
                 </h2>
               </div>
