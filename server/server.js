@@ -4,7 +4,6 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import { connectDatabase } from "./Services/connectDbService.js";
-import { seedDatabase } from "./Services/seed.js";
 import authRoutes from "./Router/authRoutes.js";
 import weddingRoutes from "./Router/weddingRoutes.js";
 import invoiceRoutes from "./Router/invoiceRoutes.js";
@@ -17,8 +16,6 @@ import ruleRoutes from "./Router/ruleRoutes.js";
 
 async function startServer() {
   await connectDatabase();
-
-  await seedDatabase();
 
   const app = express();
   const PORT = process.env.PORT || 5000;

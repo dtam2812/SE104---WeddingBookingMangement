@@ -14,11 +14,15 @@ export default function Reports() {
   }, [month, year]);
 
   const fetchReport = async () => {
-    const res = await axios.get(
-      `/api/invoices/revenue?month=${month}&year=${year}`,
-    );
-    setReportData(res.data.data || []);
-    setTotalRevenue(res.data.total_revenue || 0);
+    try {
+      const res = await axios.get(
+        `/api/invoices/revenue?month=${month}&year=${year}`,
+      );
+      setReportData(res.data.data || []);
+      setTotalRevenue(res.data.total_revenue || 0);
+    } catch (err) {
+      console.error("Lỗi fetchReport:", err.response?.data || err.message);
+    }
   };
 
   const exportToExcel = () => {
