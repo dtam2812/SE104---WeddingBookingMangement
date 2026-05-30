@@ -3,32 +3,82 @@ import { Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import axios from "../common";
 
+const fmt = (n) => (n != null ? Number(n).toLocaleString("vi-VN") + " đ" : "-");
+
+const calcLateDays = (weddingDateStr) => {
+  const wedding = new Date(weddingDateStr);
+  const penaltyStart = new Date(wedding);
+  penaltyStart.setDate(penaltyStart.getDate() + 1);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffMs = today - penaltyStart;
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
+};
+
+const fmtDate = (dateStr) => {
+  if (!dateStr) return "-";
+  const [y, m, d] = dateStr.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+};
+
 export default function Reports() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [weddings, setWeddings] = useState([]);
+  const [penaltyRate, setPenaltyRate] = useState(0.01);
 
   useEffect(() => {
     fetchReport();
   }, [month, year]);
 
+  useEffect(() => {
+    fetchWeddings();
+    fetchPenaltyRate();
+  }, []);
+
   const fetchReport = async () => {
+    const res = await axios.get(
+      `/api/invoices/revenue?month=${month}&year=${year}`,
+    );
+    const data = (res.data.data || []).map((inv, idx) => ({
+      ...inv,
+      display_num: idx + 1,
+    }));
+    setReportData(data);
+    setTotalRevenue(res.data.total_revenue || 0);
+  };
+
+  const fetchWeddings = async () => {
+    const res = await axios.get("/api/weddings");
+    const sorted = [...(res.data.data || [])].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+    );
+    setWeddings(sorted.map((w, idx) => ({ ...w, display_num: idx + 1 })));
+  };
+
+  const fetchPenaltyRate = async () => {
     try {
-      const res = await axios.get(
-        `/api/invoices/revenue?month=${month}&year=${year}`,
-      );
-      setReportData(res.data.data || []);
-      setTotalRevenue(res.data.total_revenue || 0);
-    } catch (err) {
-      console.error("Lỗi fetchReport:", err.response?.data || err.message);
+      const res = await axios.get("/api/rules");
+      const rules = res.data.data || [];
+      const rule = rules.find((r) => r.code === "PENALTY_RATE");
+      if (rule) setPenaltyRate(Number(rule.value));
+    } catch {
+      // keep fallback
     }
   };
+
+  const weddingMap = weddings.reduce((map, w) => {
+    map[String(w.id || w._id)] = w;
+    return map;
+  }, {});
 
   const exportToExcel = () => {
     const wsData = [
       [
-        "Mã Hóa Đơn",
+        "Mã HĐ",
+        "Mã TC",
         "Khách Hàng",
         "Ngày Tiệc",
         "Ngày Thanh Toán",
@@ -36,16 +86,31 @@ export default function Reports() {
         "Tiền Phạt",
         "Tổng Cộng",
       ],
-      ...reportData.map((r) => [
-        `HD${r.id.toString().padStart(3, "0")}`,
-        `${r.groom_name} & ${r.bride_name}`,
-        r.wedding_date,
-        r.payment_date,
-        r.total_amount,
-        r.penalty_amount,
-        r.total_amount + r.penalty_amount,
-      ]),
-      ["", "", "", "TỔNG DOANH THU:", "", "", totalRevenue],
+      ...reportData.map((r) => {
+        const w = weddingMap[String(r.wedding_id)];
+        const estLateDays = r.apply_penalty ? calcLateDays(r.wedding_date) : 0;
+        const estPenalty =
+          estLateDays > 0
+            ? Math.round(
+                (r.remaining_amount - (r.paid_amount || 0)) *
+                  penaltyRate *
+                  estLateDays,
+              )
+            : 0;
+        const displayPenalty =
+          r.penalty_amount > 0 ? r.penalty_amount : estPenalty;
+        return [
+          `HD${String(r.display_num).padStart(3, "0")}`,
+          w ? `TC${String(w.display_num).padStart(3, "0")}` : "???",
+          `${r.groom_name} & ${r.bride_name}`,
+          fmtDate(r.wedding_date),
+          fmtDate(r.payment_date),
+          r.total_amount,
+          displayPenalty,
+          r.total_amount + displayPenalty,
+        ];
+      }),
+      ["", "", "", "", "TỔNG DOANH THU:", "", "", totalRevenue],
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
@@ -127,6 +192,7 @@ export default function Reports() {
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
               <th className="py-4 px-4 font-semibold">MÃ HĐ</th>
+              <th className="py-4 px-4 font-semibold">MÃ TC</th>
               <th className="py-4 px-4 font-semibold">KHÁCH HÀNG</th>
               <th className="py-4 px-4 font-semibold">NGÀY TIỆC</th>
               <th className="py-4 px-4 font-semibold">NGÀY TT</th>
@@ -136,36 +202,56 @@ export default function Reports() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {reportData.map((r) => (
-              <tr
-                key={r.id}
-                className="hover:bg-slate-50 transition-colors text-sm"
-              >
-                <td className="py-4 px-4 font-medium text-slate-800">
-                  HD{r.id.toString().padStart(3, "0")}
-                </td>
-                <td className="py-4 px-4 text-slate-600">
-                  {r.groom_name} & {r.bride_name}
-                </td>
-                <td className="py-4 px-4 text-slate-600">{r.wedding_date}</td>
-                <td className="py-4 px-4 text-slate-600">{r.payment_date}</td>
-                <td className="py-4 px-4 text-slate-800 text-right">
-                  {r.total_amount.toLocaleString("vi-VN")} đ
-                </td>
-                <td className="py-4 px-4 text-red-500 text-right">
-                  {r.penalty_amount > 0
-                    ? r.penalty_amount.toLocaleString("vi-VN") + " đ"
-                    : "-"}
-                </td>
-                <td className="py-4 px-4 font-medium text-emerald-600 text-right">
-                  {(r.total_amount + r.penalty_amount).toLocaleString("vi-VN")}{" "}
-                  đ
-                </td>
-              </tr>
-            ))}
+            {reportData.map((r) => {
+              const w = weddingMap[String(r.wedding_id)];
+              const estLateDays = r.apply_penalty
+                ? calcLateDays(r.wedding_date)
+                : 0;
+              const estPenalty =
+                estLateDays > 0
+                  ? Math.round(
+                      (r.remaining_amount - (r.paid_amount || 0)) *
+                        penaltyRate *
+                        estLateDays,
+                    )
+                  : 0;
+              const displayPenalty =
+                r.penalty_amount > 0 ? r.penalty_amount : estPenalty;
+              return (
+                <tr
+                  key={r.id || r._id}
+                  className="hover:bg-slate-50 transition-colors text-sm"
+                >
+                  <td className="py-4 px-4 font-medium text-slate-800">
+                    HD{String(r.display_num).padStart(3, "0")}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600">
+                    {w ? `TC${String(w.display_num).padStart(3, "0")}` : "???"}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600">
+                    {r.groom_name} & {r.bride_name}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600">
+                    {fmtDate(r.wedding_date)}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600">
+                    {fmtDate(r.payment_date)}
+                  </td>
+                  <td className="py-4 px-4 text-slate-800 text-right">
+                    {fmt(r.total_amount)}
+                  </td>
+                  <td className="py-4 px-4 text-red-500 text-right">
+                    {displayPenalty > 0 ? fmt(displayPenalty) : "-"}
+                  </td>
+                  <td className="py-4 px-4 font-medium text-emerald-600 text-right">
+                    {fmt(r.total_amount + displayPenalty)}
+                  </td>
+                </tr>
+              );
+            })}
             {reportData.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500">
+                <td colSpan={8} className="py-8 text-center text-slate-500">
                   Không có dữ liệu doanh thu trong tháng này.
                 </td>
               </tr>

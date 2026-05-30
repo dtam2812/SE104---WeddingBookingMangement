@@ -29,16 +29,16 @@ export const getById = async (req, res) => {
 export const getRevenueReport = async (req, res) => {
   try {
     const { month, year } = req.query;
-    const filter = { status: "paid" };
+    const filter = {};
 
     if (month && year) {
       const start = new Date(year, month - 1, 1);
       const end = new Date(year, month, 1);
-      filter.payment_date = { $gte: start, $lt: end };
+      filter.wedding_date = { $gte: start, $lt: end };
     } else if (year) {
       const start = new Date(year, 0, 1);
       const end = new Date(Number(year) + 1, 0, 1);
-      filter.payment_date = { $gte: start, $lt: end };
+      filter.wedding_date = { $gte: start, $lt: end };
     }
 
     const invoices = await Invoice.find(filter);
