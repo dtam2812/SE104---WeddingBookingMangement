@@ -133,17 +133,17 @@ export default function Rules() {
                 key={rule.id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {(currentPage - 1) * itemsPerPage + index + 1}
                 </td>
-                <td className="py-4 px-4 font-medium text-slate-800">
+                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   {rule.code}
                 </td>
-                <td className="py-4 px-4 text-slate-600">{rule.value}</td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{rule.value}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {rule.description || "-"}
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleEdit(rule)}
@@ -163,7 +163,7 @@ export default function Rules() {
             ))}
             {currentRules.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-500">
+                <td colSpan={5} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy quy định nào.
                 </td>
               </tr>

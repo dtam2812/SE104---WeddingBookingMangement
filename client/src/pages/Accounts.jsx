@@ -177,25 +177,25 @@ export default function Accounts() {
                 key={acc.id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {(currentPage - 1) * itemsPerPage + index + 1}
                 </td>
-                <td className="py-4 px-4 font-medium text-slate-800">
+                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   {acc.full_name}
                 </td>
-                <td className="py-4 px-4 text-slate-600">{acc.phone || "-"}</td>
-                <td className="py-4 px-4 text-slate-600">{acc.email || "-"}</td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{acc.phone || "-"}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{acc.email || "-"}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {roleLabel[acc.role] || acc.role}
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 whitespace-nowrap">
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${statusStyle[acc.status] || ""}`}
                   >
                     {statusLabel[acc.status] || acc.status}
                   </span>
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleEdit(acc)}
@@ -215,7 +215,7 @@ export default function Accounts() {
             ))}
             {currentAccounts.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500">
+                <td colSpan={7} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy tài khoản nào.
                 </td>
               </tr>

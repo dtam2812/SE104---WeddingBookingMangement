@@ -130,19 +130,19 @@ export default function Foods() {
                 key={food.id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {(currentPage - 1) * itemsPerPage + index + 1}
                 </td>
-                <td className="py-4 px-4 font-medium text-slate-800">
+                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   {food.name}
                 </td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {food.price.toLocaleString("vi-VN")} đ
                 </td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {food.notes || "-"}
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleEdit(food)}
@@ -162,7 +162,7 @@ export default function Foods() {
             ))}
             {currentFoods.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-500">
+                <td colSpan={5} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy món ăn nào.
                 </td>
               </tr>
