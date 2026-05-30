@@ -51,7 +51,7 @@ Tạo file `.env` trong thư mục `server/` với nội dung sau:
 
 ```env
 JWT_SECRET=jwtSecret
-PORT=5000
+PORT=8080
 DB_URL=mongodb+srv://nguyenductam98765_db_user:dtam2812@cluster0.rhi4hs0.mongodb.net/WeddingManagement
 JWT_EXPIRES_IN=8h
 ```
@@ -98,7 +98,7 @@ npm install
 npm start
 ```
 
-> Server sẽ chạy tại: `http://localhost:5000`
+> Server sẽ chạy tại: `http://localhost:8080`
 
 ---
 
