@@ -217,7 +217,7 @@ export default function Invoices() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-w-0 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-800 uppercase">
@@ -282,7 +282,7 @@ export default function Invoices() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-6 px-6">
           <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
@@ -311,49 +311,49 @@ export default function Invoices() {
                   key={invoice.id}
                   className="hover:bg-slate-50 transition-colors text-sm"
                 >
-                  <td className="py-4 px-4 font-medium text-slate-800">
+                  <td className="py-4 px-4 whitespace-nowrap font-medium text-slate-800">
                     HD{invoice.display_num.toString().padStart(3, "0")}
                   </td>
-                  <td className="py-4 px-4 text-slate-600">
+                  <td className="py-4 px-4 whitespace-nowrap text-slate-600">
                     {(() => {
                       const w = weddings.find((x) => String(x.id) === String(invoice.wedding_id));
                       return w ? `TC${String(w.display_num).padStart(3, "0")}` : "???";
                     })()}
                   </td>
-                  <td className="py-4 px-4 text-slate-800">
+                  <td className="py-4 px-4 whitespace-nowrap text-slate-800">
                     {invoice.groom_name} & {invoice.bride_name}
                   </td>
-                  <td className="py-4 px-4 text-slate-600">
+                  <td className="py-4 px-4 whitespace-nowrap text-slate-600">
                     {invoice.wedding_date
                       ? (() => { const [y, m, d] = invoice.wedding_date.slice(0, 10).split("-"); return `${d}/${m}/${y}`; })()
                       : "-"}
                   </td>
-                  <td className="py-4 px-4 font-medium text-emerald-600">
+                  <td className="py-4 px-4 whitespace-nowrap font-medium text-emerald-600">
                     {fmt(paid)}
                   </td>
-                  <td className="py-4 px-4 font-medium text-slate-800">
+                  <td className="py-4 px-4 whitespace-nowrap font-medium text-slate-800">
                     {stillOwed > 0 ? (
                       fmt(stillOwed)
                     ) : (
                       <span className="text-emerald-600">Đã đủ</span>
                     )}
                   </td>
-                  <td className="py-4 px-4 text-slate-600">
+                  <td className="py-4 px-4 whitespace-nowrap text-slate-600">
                     {displayLateDays > 0 ? displayLateDays : "-"}
                   </td>
-                  <td className="py-4 px-4 text-red-500 font-medium">
+                  <td className="py-4 px-4 whitespace-nowrap text-red-500 font-medium">
                     {displayPenalty > 0
                       ? fmt(displayPenalty)
                       : "-"}
                   </td>
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 whitespace-nowrap">
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${statusStyle[invoice.status] || statusStyle.unpaid}`}
                     >
                       {statusLabel[invoice.status] || invoice.status}
                     </span>
                   </td>
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
                       {invoice.status === "paid" ? (
                         <button

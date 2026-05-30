@@ -212,24 +212,24 @@ export default function Reports() {
                 key={r.id || r._id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
-                <td className="py-4 px-4 font-medium text-slate-800">
+                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   HD{String(r.display_num).padStart(3, "0")}
                 </td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {w ? `TC${String(w.display_num).padStart(3, "0")}` : "???"}
                 </td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {r.groom_name} & {r.bride_name}
                 </td>
-                <td className="py-4 px-4 text-slate-600">{fmtDate(r.wedding_date)}</td>
-                <td className="py-4 px-4 text-slate-600">{fmtDate(r.payment_date)}</td>
-                <td className="py-4 px-4 text-slate-800 text-right">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{fmtDate(r.wedding_date)}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{fmtDate(r.payment_date)}</td>
+                <td className="py-4 px-4 text-slate-800 text-right whitespace-nowrap">
                   {fmt(r.total_amount)}
                 </td>
-                <td className="py-4 px-4 text-red-500 text-right">
+                <td className="py-4 px-4 text-red-500 text-right whitespace-nowrap">
                   {displayPenalty > 0 ? fmt(displayPenalty) : "-"}
                 </td>
-                <td className="py-4 px-4 font-medium text-emerald-600 text-right">
+                <td className="py-4 px-4 font-medium text-emerald-600 text-right whitespace-nowrap">
                   {fmt(r.total_amount + displayPenalty)}
                 </td>
               </tr>
@@ -237,7 +237,7 @@ export default function Reports() {
             })}
             {reportData.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500">
+                <td colSpan={8} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không có dữ liệu doanh thu trong tháng này.
                 </td>
               </tr>

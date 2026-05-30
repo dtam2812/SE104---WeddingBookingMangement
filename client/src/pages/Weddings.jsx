@@ -325,27 +325,27 @@ export default function Weddings() {
                 key={wedding.id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
-                <td className="py-4 px-4 font-medium text-slate-800">
+                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   TC{String(wedding.display_num).padStart(3, "0")}
                 </td>
-                <td className="py-4 px-4 text-slate-800">
+                <td className="py-4 px-4 text-slate-800 whitespace-nowrap">
                   {wedding.groom_name}
                 </td>
-                <td className="py-4 px-4 text-slate-800">
+                <td className="py-4 px-4 text-slate-800 whitespace-nowrap">
                   {wedding.bride_name}
                 </td>
-                <td className="py-4 px-4 text-slate-600">{wedding.phone}</td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{wedding.phone}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {wedding.hall_name}
                 </td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {formatDateVN(wedding.wedding_date)}
                 </td>
-                <td className="py-4 px-4 text-slate-600">{wedding.shift}</td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{wedding.shift}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {wedding.table_count}
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleView(wedding)}
@@ -375,7 +375,7 @@ export default function Weddings() {
             ))}
             {currentWeddings.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-slate-500">
+                <td colSpan={9} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy tiệc cưới nào.
                 </td>
               </tr>
@@ -593,6 +593,49 @@ export default function Weddings() {
                     />
                   </div>
                 </div>
+
+                {/* Tổng tiền dự kiến */}
+                {(() => {
+                  const t = Number(formData.table_count) || 0;
+                  const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
+                  const foodTotal = foodPerTable * t;
+                  const serviceTotal = selectedServices.reduce((s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)), 0);
+                  const total = foodTotal + serviceTotal;
+                  const deposit = Number(formData.deposit) || 0;
+                  return (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-indigo-700">Tiền thức ăn</span>
+                        <span className="font-semibold text-indigo-900">{foodTotal.toLocaleString("vi-VN")} đ</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-indigo-700">Tiền dịch vụ</span>
+                        <span className="font-semibold text-indigo-900">{serviceTotal.toLocaleString("vi-VN")} đ</span>
+                      </div>
+                      <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
+                        <span className="text-indigo-800">Tổng tiệc</span>
+                        <span className="text-indigo-900">{total.toLocaleString("vi-VN")} đ</span>
+                      </div>
+                      {deposit > 0 && (
+                        <div className="flex justify-between text-amber-700">
+                          <span>Đặt cọc</span>
+                          <span className="font-semibold">-{deposit.toLocaleString("vi-VN")} đ</span>
+                        </div>
+                      )}
+                      {deposit > 0 && (
+                        <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold">
+                          <span className={total >= deposit ? "text-indigo-800" : "text-red-600"}>Còn lại</span>
+                          <span className={total >= deposit ? "text-indigo-900" : "text-red-600"}>
+                            {Math.max(0, total - deposit).toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+                      )}
+                      {deposit > total && (
+                        <p className="text-xs text-red-500 mt-1">⚠ Tiền cọc lớn hơn tổng tiệc!</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Thực đơn */}
                 <div className="border-t border-slate-100 pt-6">

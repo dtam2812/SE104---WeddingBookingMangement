@@ -92,7 +92,7 @@ export const create = async (req, res) => {
     );
 
     const total_amount = foodTotal + serviceTotal;
-    const remaining_amount = total_amount - (wedding.deposit || 0);
+    const remaining_amount = Math.max(0, total_amount - (wedding.deposit || 0));
 
     const invoiceData = {
       wedding_id,

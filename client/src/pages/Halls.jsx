@@ -180,24 +180,24 @@ export default function Halls() {
                 key={hall.id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {(currentPage - 1) * itemsPerPage + index + 1}
                 </td>
-                <td className="py-4 px-4 font-medium text-slate-800">
+                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   {hall.name}
                 </td>
-                <td className="py-4 px-4 text-slate-600">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {hall.type_id?.name || "-"}
                 </td>
-                <td className="py-4 px-4 text-slate-600">{hall.max_tables}</td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{hall.max_tables}</td>
+                <td className="py-4 px-4 whitespace-nowrap">
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${statusStyle[hall.status] || ""}`}
                   >
                     {statusLabel[hall.status] || hall.status}
                   </span>
                 </td>
-                <td className="py-4 px-4">
+                <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => handleEdit(hall)}
@@ -217,7 +217,7 @@ export default function Halls() {
             ))}
             {currentHalls.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-500">
+                <td colSpan={6} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy sảnh nào.
                 </td>
               </tr>

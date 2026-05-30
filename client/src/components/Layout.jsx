@@ -109,7 +109,7 @@ export default function Layout({ user, setUser }) {
       {/* Main Content */}
       <div
         className={clsx(
-          "flex-1 transition-all duration-300 min-h-screen flex flex-col",
+          "flex-1 min-w-0 transition-all duration-300 min-h-screen flex flex-col",
           collapsed ? "ml-[70px]" : "ml-[250px]",
         )}
       >
