@@ -91,7 +91,11 @@ export default function Reports() {
         const estLateDays = r.apply_penalty ? calcLateDays(r.wedding_date) : 0;
         const estPenalty =
           estLateDays > 0
-            ? Math.round((r.remaining_amount - (r.paid_amount || 0)) * penaltyRate * estLateDays)
+            ? Math.round(
+                (r.remaining_amount - (r.paid_amount || 0)) *
+                  penaltyRate *
+                  estLateDays,
+              )
             : 0;
         const displayPenalty =
           r.penalty_amount > 0 ? r.penalty_amount : estPenalty;
@@ -200,10 +204,16 @@ export default function Reports() {
           <tbody className="divide-y divide-slate-100">
             {reportData.map((r) => {
               const w = weddingMap[String(r.wedding_id)];
-              const estLateDays = r.apply_penalty ? calcLateDays(r.wedding_date) : 0;
+              const estLateDays = r.apply_penalty
+                ? calcLateDays(r.wedding_date)
+                : 0;
               const estPenalty =
                 estLateDays > 0
-                  ? Math.round((r.remaining_amount - (r.paid_amount || 0)) * penaltyRate * estLateDays)
+                  ? Math.round(
+                      (r.remaining_amount - (r.paid_amount || 0)) *
+                        penaltyRate *
+                        estLateDays,
+                    )
                   : 0;
               const displayPenalty =
                 r.penalty_amount > 0 ? r.penalty_amount : estPenalty;
