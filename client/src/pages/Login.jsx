@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "../common";
 
 export default function Login({ setUser }) {
@@ -68,6 +68,11 @@ export default function Login({ setUser }) {
               required
             />
           </div>
+          <Link to="/resetPassword">
+            <p className="text-sm underline text-end cursor-pointer">
+              Quên mật khẩu
+            </p>
+          </Link>
           <button
             type="submit"
             className="w-full py-3.5 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors mt-4 shadow-md shadow-purple-200"

@@ -140,13 +140,6 @@ export default function Layout({ user, setUser }) {
                   onClick={() => setDropdownOpen(false)}
                 ></div>
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-purple-100 z-50 py-2">
-                  <button className="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 flex items-center gap-2">
-                    <User size={16} /> Xem tài khoản
-                  </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 flex items-center gap-2">
-                    <Settings size={16} /> Cài đặt
-                  </button>
-                  <div className="h-px bg-purple-50 my-1"></div>
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"

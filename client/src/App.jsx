@@ -16,6 +16,7 @@ import Weddings from "./pages/Weddings";
 import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import { useState, useEffect } from "react";
+import ResetPassword from "./pages/ResetPassword";
 
 // Đọc user từ localStorage ngay khi khởi tạo (trước render đầu tiên)
 function getInitialUser() {
@@ -52,6 +53,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/resetPassword" element={<ResetPassword />} />
 
         <Route
           path="/"
