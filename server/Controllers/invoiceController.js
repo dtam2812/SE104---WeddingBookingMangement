@@ -1,4 +1,4 @@
-import { HallType } from "../Models/index.js";
+import { Hall, HallType } from "../Models/index.js";
 import { Invoice } from "../Models/index.js";
 import { Rule } from "../Models/index.js";
 import { Wedding } from "../Models/index.js";
@@ -104,7 +104,19 @@ export const create = async (req, res) => {
       0,
     );
 
-    const total_amount = foodTotal + serviceTotal;
+    // Tiền bàn = min_price của loại sảnh * số bàn
+    let hallTotal = 0;
+    if (wedding.hall_id) {
+      const hall = await Hall.findById(wedding.hall_id);
+      if (hall && hall.type_id) {
+        const hallType = await HallType.findById(hall.type_id);
+        if (hallType) {
+          hallTotal = (hallType.min_price || 0) * actualTableCount;
+        }
+      }
+    }
+
+    const total_amount = foodTotal + serviceTotal + hallTotal;
     const remaining_amount = Math.max(0, total_amount - (wedding.deposit || 0));
 
     const invoiceData = {

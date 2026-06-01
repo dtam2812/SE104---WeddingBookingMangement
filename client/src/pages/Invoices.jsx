@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Plus, X, CreditCard, RotateCcw, FileText } from "lucide-react";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 import { toast } from "react-toastify";
 import axios from "../common";
 
@@ -22,15 +22,25 @@ const fmt = (n) => (n != null ? Number(n).toLocaleString("vi-VN") + " đ" : "-")
 
 const calcLateDays = (weddingDateStr, paymentDueDateStr) => {
   const baseDate = paymentDueDateStr || weddingDateStr;
-  const base = new Date(baseDate);
-  // Penalty starts 1 day after the due date
-  const penaltyStart = new Date(base);
-  penaltyStart.setDate(penaltyStart.getDate() + 1);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const [y, m, d] = baseDate.slice(0, 10).split("-");
+  // Dùng Date.UTC để tránh lỗi timezone
+  const base = new Date(Date.UTC(+y, +m - 1, +d));
+  const penaltyStart = new Date(+base);
+  penaltyStart.setUTCDate(penaltyStart.getUTCDate() + 1);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const diffMs = today - penaltyStart;
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
 };
+
+function _arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -136,7 +146,7 @@ export default function Invoices() {
     const already_paid = selectedInvoice.paid_amount || 0;
     const still_owed = selectedInvoice.remaining_amount - already_paid;
     const late_days = selectedInvoice.apply_penalty
-      ? calcLateDays(selectedInvoice.wedding_date, selectedInvoice.payment_due_date)
+      ? calcLateDays(selectedInvoice.wedding_date)
       : 0;
     const est_penalty =
       late_days > 0 ? Math.round(still_owed * penaltyRate * late_days) : 0;
@@ -237,11 +247,25 @@ export default function Invoices() {
     const w = weddings.find((x) => String(x.id) === String(invoice.wedding_id));
     const paid = invoice.paid_amount || 0;
     const stillOwed = invoice.remaining_amount - paid;
+
+    // Load Roboto font (hỗ trợ tiếng Việt)
+    const fontUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf";
+    const fontBoldUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf";
+    const [fontRes, fontBoldRes] = await Promise.all([fetch(fontUrl), fetch(fontBoldUrl)]);
+    const fontBuffer = await fontRes.arrayBuffer();
+    const fontBoldBuffer = await fontBoldRes.arrayBuffer();
+
     const doc = new jsPDF("portrait", "mm", "a4");
+    doc.addFileToVFS("Roboto-Regular.ttf", _arrayBufferToBase64(fontBuffer));
+    doc.addFileToVFS("Roboto-Bold.ttf", _arrayBufferToBase64(fontBoldBuffer));
+    doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+    doc.addFont("Roboto-Bold.ttf", "Roboto", "bold");
+    doc.setFont("Roboto", "normal");
+
     const pageW = doc.internal.pageSize.getWidth();
 
     // Header
-    doc.setFont("helvetica", "bold");
+    doc.setFont("Roboto", "bold");
     doc.setFontSize(22);
     doc.setTextColor(31, 78, 121);
     doc.text("HÓA ĐƠN TIỆC CƯỚI", pageW / 2, 25, { align: "center" });
@@ -253,12 +277,12 @@ export default function Invoices() {
     // Info
     doc.setFontSize(11);
     doc.setTextColor(60);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("Roboto", "normal");
     let y = 48;
     const row = (label, value) => {
-      doc.setFont("helvetica", "bold");
+      doc.setFont("Roboto", "bold");
       doc.text(label + ":", 20, y);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("Roboto", "normal");
       doc.text(value, 65, y);
       y += 7;
     };
@@ -267,13 +291,13 @@ export default function Invoices() {
     row("Tên chú rể", invoice.groom_name);
     row("Tên cô dâu", invoice.bride_name);
     row("Ngày tổ chức", invoice.wedding_date ? (() => { const [y2, m, d] = invoice.wedding_date.slice(0, 10).split("-"); return `${d}/${m}/${y2}`; })() : "-");
-    row("Hạn thanh toán", invoice.payment_due_date ? (() => { const [y2, m, d] = invoice.payment_due_date.slice(0, 10).split("-"); return `${d}/${m}/${y2}`; })() : "-");
     row("Sảnh", invoice.hall_name);
     row("Số lượng bàn", String(invoice.table_count));
+    row("Trạng thái thanh toán", statusLabel[invoice.status] || invoice.status);
 
     // Items table
     y += 5;
-    doc.setFont("helvetica", "bold");
+    doc.setFont("Roboto", "bold");
     doc.setFontSize(14);
     doc.setTextColor(31, 78, 121);
     doc.text("CHI TIẾT HÓA ĐƠN", 20, y);
@@ -292,13 +316,14 @@ export default function Invoices() {
       });
     }
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [["Tên", "Loại", "SL", "Đơn giá", "Thành tiền"]],
       body: bodyRows,
       theme: "grid",
-      headStyles: { fillColor: [31, 78, 121], textColor: 255, fontStyle: "bold", fontSize: 9 },
-      bodyStyles: { fontSize: 9 },
+      styles: { font: "Roboto" },
+      headStyles: { fillColor: [31, 78, 121], textColor: 255, fontStyle: "bold", fontSize: 9, font: "Roboto" },
+      bodyStyles: { fontSize: 9, font: "Roboto" },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       margin: { left: 20 },
     });
@@ -309,10 +334,10 @@ export default function Invoices() {
     const totalsY = y;
     doc.setFontSize(10);
     doc.setTextColor(60);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("Roboto", "normal");
 
     const totalRow = (label, value, bold = false) => {
-      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFont("Roboto", bold ? "bold" : "normal");
       doc.text(label, pageW - 100, y);
       doc.text(value, pageW - 20, y, { align: "right" });
       y += 7;
@@ -328,7 +353,7 @@ export default function Invoices() {
     doc.setDrawColor(31, 78, 121);
     doc.line(pageW - 100, y, pageW - 20, y);
     y += 5;
-    doc.setFont("helvetica", "bold");
+    doc.setFont("Roboto", "bold");
     doc.setFontSize(12);
     doc.setTextColor(31, 78, 121);
     const grandTotal = stillOwed + invoice.penalty_amount;
@@ -338,7 +363,7 @@ export default function Invoices() {
     y = Math.max(y + 15, 250);
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("Roboto", "normal");
     const today = new Date();
     const dateStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
     doc.text(`Ngày xuất: ${dateStr}`, 20, y);
@@ -448,7 +473,7 @@ export default function Invoices() {
             {currentInvoices.map((invoice) => {
               const paid = invoice.paid_amount || 0;
               const stillOwed = invoice.remaining_amount - paid;
-              const estLateDays = invoice.apply_penalty ? calcLateDays(invoice.wedding_date, invoice.payment_due_date) : 0;
+              const estLateDays = invoice.apply_penalty ? calcLateDays(invoice.wedding_date) : 0;
               const estPenalty = estLateDays > 0 ? Math.round(stillOwed * penaltyRate * estLateDays) : 0;
               const displayLateDays = invoice.late_days > 0 ? invoice.late_days : estLateDays;
               const displayPenalty = invoice.penalty_amount > 0 ? invoice.penalty_amount : estPenalty;

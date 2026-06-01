@@ -9,9 +9,20 @@ const formatDateVN = (dateStr) => {
   return `${d}/${m}/${y}`;
 };
 
+const statusLabel = {
+  cho_xac_nhan: "Chờ xác nhận",
+  da_xac_nhan: "Đã xác nhận",
+  dang_dien_ra: "Đang diễn ra",
+  hoan_thanh: "Kết thúc",
+  da_huy: "Đã hủy",
+};
+
+const statusList = ["cho_xac_nhan", "da_xac_nhan", "dang_dien_ra", "hoan_thanh", "da_huy"];
+
 export default function Weddings() {
   const [weddings, setWeddings] = useState([]);
   const [halls, setHalls] = useState([]);
+  const [hallTypes, setHallTypes] = useState([]);
   const [foods, setFoods] = useState([]);
   const [services, setServices] = useState([]);
   const [search, setSearch] = useState("");
@@ -19,6 +30,7 @@ export default function Weddings() {
   const [filterYear, setFilterYear] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [filterHall, setFilterHall] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -44,7 +56,6 @@ export default function Weddings() {
     table_count: "",
     reserve_table_count: "0",
     deposit: "",
-    payment_due_date: "",
   });
 
   const [selectedFoods, setSelectedFoods] = useState([]);
@@ -62,6 +73,7 @@ export default function Weddings() {
   useEffect(() => {
     fetchWeddings();
     fetchHalls();
+    fetchHallTypes();
     fetchFoods();
     fetchServices();
   }, []);
@@ -75,6 +87,11 @@ export default function Weddings() {
   const fetchHalls = async () => {
     const res = await axios.get("/api/halls");
     setHalls(res.data.data || []);
+  };
+
+  const fetchHallTypes = async () => {
+    const res = await axios.get("/api/hall-types");
+    setHallTypes(res.data.data || []);
   };
 
   const fetchFoods = async () => {
@@ -102,7 +119,6 @@ export default function Weddings() {
         ...formData,
         foods: selectedFoods,
         services: selectedServices,
-        payment_due_date: formData.payment_due_date || formData.wedding_date,
       };
       if (editingId) {
         await axios.put(`/api/weddings/${editingId}`, payload);
@@ -128,9 +144,6 @@ export default function Weddings() {
       table_count: wedding.table_count.toString(),
       reserve_table_count: wedding.reserve_table_count.toString(),
       deposit: wedding.deposit.toString(),
-      payment_due_date: wedding.payment_due_date
-        ? toDateInput(wedding.payment_due_date)
-        : toDateInput(wedding.wedding_date),
     });
     setSelectedFoods(wedding.foods || []);
     setSelectedServices(wedding.services || []);
@@ -166,7 +179,6 @@ export default function Weddings() {
       table_count: "",
       reserve_table_count: "0",
       deposit: "",
-      payment_due_date: "",
     });
     setSelectedFoods([]);
     setSelectedServices([]);
@@ -215,8 +227,9 @@ export default function Weddings() {
     }
     if (filterHall)
       matchHall = (w.hall_id || "").toString() === filterHall.toString();
+    const matchStatus = filterStatus ? w.status === filterStatus : true;
 
-    return matchSearch && matchMonth && matchYear && matchDate && matchHall;
+    return matchSearch && matchMonth && matchYear && matchDate && matchHall && matchStatus;
   });
 
   const totalPages = Math.ceil(filteredWeddings.length / itemsPerPage);
@@ -237,7 +250,10 @@ export default function Weddings() {
       0,
     );
     const tableTotal = (wedding.table_count || 0) * foodTotal;
-    return serviceTotal + tableTotal;
+    const selHall = halls.find((h) => h.id.toString() === wedding.hall_id?.toString());
+    // type_id đã được populate → chứa { _id, name, min_price }
+    const hallTotal = (selHall?.type_id?.min_price || 0) * (wedding.table_count || 0);
+    return serviceTotal + tableTotal + hallTotal;
   };
 
   return (
@@ -287,6 +303,19 @@ export default function Weddings() {
               <option key={h.id} value={h.id}>
                 {h.name}
               </option>
+            ))}
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+          >
+            <option value="">Tất cả trạng thái</option>
+            {statusList.map((s) => (
+              <option key={s} value={s}>{statusLabel[s]}</option>
             ))}
           </select>
           <button
@@ -361,21 +390,31 @@ export default function Weddings() {
                   {wedding.table_count}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                    wedding.status === "cho_xac_nhan" ? "bg-amber-50 text-amber-600" :
-                    wedding.status === "da_xac_nhan" ? "bg-blue-50 text-blue-600" :
-                    wedding.status === "dang_dien_ra" ? "bg-emerald-50 text-emerald-600" :
-                    wedding.status === "hoan_thanh" ? "bg-indigo-50 text-indigo-600" :
-                    wedding.status === "da_huy" ? "bg-red-50 text-red-500" :
-                    "bg-slate-50 text-slate-500"
-                  }`}>
-                    {wedding.status === "cho_xac_nhan" ? "Chờ xác nhận" :
-                     wedding.status === "da_xac_nhan" ? "Đã xác nhận" :
-                     wedding.status === "dang_dien_ra" ? "Đang tổ chức" :
-                     wedding.status === "hoan_thanh" ? "Hoàn thành" :
-                     wedding.status === "da_huy" ? "Đã hủy" :
-                     wedding.status || "-"}
-                  </span>
+                  <select
+                    value={wedding.status}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      try {
+                        await axios.put(`/api/weddings/${wedding.id}`, { status: newStatus });
+                        toast.success(`Cập nhật trạng thái → ${statusLabel[newStatus]}`);
+                        fetchWeddings();
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || "Lỗi cập nhật trạng thái!");
+                      }
+                    }}
+                    className={`text-xs font-medium rounded px-1 py-1 border ${
+                      wedding.status === "cho_xac_nhan" ? "bg-amber-50 text-amber-600 border-amber-200" :
+                      wedding.status === "da_xac_nhan" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                      wedding.status === "dang_dien_ra" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                      wedding.status === "hoan_thanh" ? "bg-indigo-50 text-indigo-600 border-indigo-200" :
+                      wedding.status === "da_huy" ? "bg-red-50 text-red-500 border-red-200" :
+                      "bg-slate-50 text-slate-500 border-slate-200"
+                    }`}
+                  >
+                    {statusList.map((s) => (
+                      <option key={s} value={s}>{statusLabel[s]}</option>
+                    ))}
+                  </select>
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -521,7 +560,6 @@ export default function Weddings() {
                         setFormData({
                           ...formData,
                           wedding_date: val,
-                          payment_due_date: formData.payment_due_date || val,
                         });
                       }}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
@@ -754,37 +792,20 @@ export default function Weddings() {
 
                 {/* Tiền cọc + Ngày hạn thanh toán + Tổng tiệc */}
                 <div className="border-t border-slate-100 pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Tiền đặt cọc (VNĐ)
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        value={formData.deposit ? Number(formData.deposit).toLocaleString("vi-VN") : ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, deposit: e.target.value.replace(/\D/g, "") })
-                        }
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Ngày hạn thanh toán
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.payment_due_date}
-                        min={formData.wedding_date || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, payment_due_date: e.target.value })
-                        }
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Tiền đặt cọc (VNĐ)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      value={formData.deposit ? Number(formData.deposit).toLocaleString("vi-VN") : ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, deposit: e.target.value.replace(/\D/g, "") })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                    />
                   </div>
 
                   {(() => {
@@ -792,7 +813,11 @@ export default function Weddings() {
                     const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
                     const foodTotal = foodPerTable * t;
                     const serviceTotal = selectedServices.reduce((s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)), 0);
-                    const total = foodTotal + serviceTotal;
+                    const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
+                    // type_id đã được populate → chứa { _id, name, min_price }
+                    const pricePerTable = selHall?.type_id?.min_price || 0;
+                    const hallTotal = pricePerTable * t;
+                    const total = foodTotal + serviceTotal + hallTotal;
                     const deposit = Number(formData.deposit) || 0;
                     return (
                       <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
@@ -803,6 +828,10 @@ export default function Weddings() {
                         <div className="flex justify-between">
                           <span className="text-indigo-700">Tiền dịch vụ</span>
                           <span className="font-semibold text-indigo-900">{serviceTotal.toLocaleString("vi-VN")} đ</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-indigo-700">Tiền bàn ({pricePerTable.toLocaleString("vi-VN")} đ × {t} bàn)</span>
+                          <span className="font-semibold text-indigo-900">{hallTotal.toLocaleString("vi-VN")} đ</span>
                         </div>
                         <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
                           <span className="text-indigo-800">Tổng tiệc</span>
@@ -901,13 +930,7 @@ export default function Weddings() {
                     },
                     {
                       label: "Trạng thái",
-                      value:
-                        viewingWedding.status === "cho_xac_nhan" ? "Chờ xác nhận" :
-                        viewingWedding.status === "da_xac_nhan" ? "Đã xác nhận" :
-                        viewingWedding.status === "dang_dien_ra" ? "Đang tổ chức" :
-                        viewingWedding.status === "hoan_thanh" ? "Hoàn thành" :
-                        viewingWedding.status === "da_huy" ? "Đã hủy" :
-                        viewingWedding.status || "-",
+                      value: statusLabel[viewingWedding.status] || viewingWedding.status || "-",
                       highlight: true,
                     },
                     {

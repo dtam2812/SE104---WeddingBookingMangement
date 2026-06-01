@@ -17,9 +17,7 @@ export default function HallTypes() {
   const itemsPerPage = 8;
   const [formData, setFormData] = useState({
     name: "",
-    description: "",
-    capacity_min: "",
-    capacity_max: "",
+    min_price: "",
   });
 
   useEffect(() => {
@@ -53,9 +51,7 @@ export default function HallTypes() {
     setEditingId(item.id);
     setFormData({
       name: item.name,
-      description: item.description || "",
-      capacity_min: item.capacity_min?.toString() || "",
-      capacity_max: item.capacity_max?.toString() || "",
+      min_price: item.min_price?.toString() || "",
     });
     setIsModalOpen(true);
   };
@@ -74,7 +70,7 @@ export default function HallTypes() {
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ name: "", description: "", capacity_min: "", capacity_max: "" });
+    setFormData({ name: "", min_price: "" });
     setError("");
     setIsModalOpen(true);
   };
@@ -136,9 +132,7 @@ export default function HallTypes() {
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
               <th className="py-4 px-4 font-semibold">STT</th>
               <th className="py-4 px-4 font-semibold">TÊN LOẠI SẢNH</th>
-              <th className="py-4 px-4 font-semibold">MÔ TẢ</th>
-              <th className="py-4 px-4 font-semibold">SỨC CHỨA TỐI THIỂU</th>
-              <th className="py-4 px-4 font-semibold">SỨC CHỨA TỐI ĐA</th>
+              <th className="py-4 px-4 font-semibold">ĐƠN GIÁ BÀN TỐI THIỂU</th>
               <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
@@ -154,14 +148,8 @@ export default function HallTypes() {
                 <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   {item.name}
                 </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {item.description || "-"}
-                </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {item.capacity_min || "-"}
-                </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {item.capacity_max || "-"}
+                <td className="py-4 px-4 text-emerald-600 font-medium whitespace-nowrap">
+                  {item.min_price ? Number(item.min_price).toLocaleString("vi-VN") + " đ" : "-"}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -183,7 +171,7 @@ export default function HallTypes() {
             ))}
             {currentItems.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td colSpan={4} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy loại sảnh nào.
                 </td>
               </tr>
@@ -254,46 +242,18 @@ export default function HallTypes() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Mô tả:
+                  Đơn giá bàn tối thiểu (VNĐ):
                 </label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={formData.min_price ? Number(formData.min_price).toLocaleString("vi-VN") : ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
+                    setFormData({ ...formData, min_price: e.target.value.replace(/\D/g, "") })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all resize-none text-sm"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Sức chứa tối thiểu:
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.capacity_min}
-                    onChange={(e) =>
-                      setFormData({ ...formData, capacity_min: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Sức chứa tối đa:
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.capacity_max}
-                    onChange={(e) =>
-                      setFormData({ ...formData, capacity_max: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
-                  />
-                </div>
               </div>
               <div className="flex justify-center gap-3 pt-6">
                 <button
