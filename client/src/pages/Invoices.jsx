@@ -96,22 +96,24 @@ export default function Invoices() {
   };
 
   const fetchPenaltyRate = async () => {
-    try {
-      const res = await axios.get("/api/rules");
-      const rules = res.data.data || [];
-      
-      const rule = rules.find((r) => r.code === "PENALTY_RATE");
-      
-      if (rule) {
-        const rate = parseFloat(rule.value);
-        if (!isNaN(rate)) {
-          setPenaltyRate(rate);
-        }
+  try {
+    const res = await axios.get("/api/rules");
+    const rules = res.data.data || [];
+    
+    // Đổi "PENALTY_RATE" thành "TIEN_PHAT" cho khớp với Database
+    const rule = rules.find((r) => r.code === "TIEN_PHAT");
+    
+    if (rule) {
+      // Dùng parseFloat để bóc con số 2 ra khỏi chuỗi "2%", sau đó chia 100 để ra 0.02
+      const rate = parseFloat(rule.value) / 100;
+      if (!isNaN(rate)) {
+        setPenaltyRate(rate);
       }
-    } catch {
-      // keep fallback
     }
-  };
+  } catch {
+    // keep fallback
+  }
+};
 
   // ── Create invoice ────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
