@@ -89,8 +89,15 @@ export default function Invoices() {
     try {
       const res = await axios.get("/api/rules");
       const rules = res.data.data || [];
-      const rule = rules.find((r) => r.code === "PENALTY_RATE");
-      if (rule) setPenaltyRate(Number(rule.value));
+      
+      const rule = rules.find((r) => r.code === "TIEN_PHAT");
+      
+      if (rule) {
+        const rate = parseFloat(rule.value) / 100;
+        if (!isNaN(rate)) {
+          setPenaltyRate(rate);
+        }
+      }
     } catch {
       // keep fallback
     }
