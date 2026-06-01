@@ -206,10 +206,12 @@ export const update = async (req, res) => {
           const late_days =
             diffMs > 0 ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1 : 0;
 
+          // Tính phạt trên số tiền thực còn nợ (trừ các lần đã trả trước đó)
+          const actual_still_owed = invoice.remaining_amount - (invoice.paid_amount || 0);
           updates.late_days = late_days;
           updates.penalty_amount =
             late_days > 0
-              ? Math.round(invoice.remaining_amount * penaltyRate * late_days)
+              ? Math.round(actual_still_owed * penaltyRate * late_days)
               : 0;
         }
       } else {
@@ -246,12 +248,20 @@ export const update = async (req, res) => {
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 export const remove = async (req, res) => {
   try {
-    const doc = await Invoice.findByIdAndDelete(req.params.id);
+    const doc = await Invoice.findById(req.params.id);
     if (!doc) {
       return res
         .status(404)
         .json({ success: false, message: "Không tìm thấy hóa đơn!" });
     }
+    // ── Không cho xóa hóa đơn đã thanh toán ─────────────────────────────────
+    if (doc.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể xóa hóa đơn đã thanh toán! Vui lòng hoàn tác thanh toán trước.",
+      });
+    }
+    await Invoice.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Đã xóa hóa đơn!" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

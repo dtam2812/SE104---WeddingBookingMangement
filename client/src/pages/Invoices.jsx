@@ -100,10 +100,10 @@ export default function Invoices() {
       const res = await axios.get("/api/rules");
       const rules = res.data.data || [];
       
-      const rule = rules.find((r) => r.code === "TIEN_PHAT");
+      const rule = rules.find((r) => r.code === "PENALTY_RATE");
       
       if (rule) {
-        const rate = parseFloat(rule.value) / 100;
+        const rate = parseFloat(rule.value);
         if (!isNaN(rate)) {
           setPenaltyRate(rate);
         }

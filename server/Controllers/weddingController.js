@@ -120,6 +120,14 @@ export const update = async (req, res) => {
   try {
     const body = req.body;
 
+    // ── Lấy dữ liệu tiệc hiện tại để bù vào các trường không được gửi lên ───────────────
+    const currentWedding = await Wedding.findById(req.params.id);
+    if (!currentWedding) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy tiệc cưới!" });
+    }
+
     // ── Validate table_count + reserve <= hall.max_tables ──────────────────
     if (body.hall_id) {
       const hall = await Hall.findById(body.hall_id);
@@ -140,6 +148,34 @@ export const update = async (req, res) => {
       }
     }
 
+    // ── Kiểm tra trùng lịch sảnh ────────────────────────────────────────────
+    const effectiveHallId = body.hall_id || currentWedding.hall_id;
+    const effectiveDate   = body.wedding_date || currentWedding.wedding_date;
+    const effectiveShift  = body.shift || currentWedding.shift;
+
+    if (effectiveHallId && effectiveDate && effectiveShift) {
+      const startOfDay = new Date(effectiveDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(effectiveDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const conflict = await Wedding.findOne({
+        _id: { $ne: req.params.id },
+        hall_id: effectiveHallId,
+        wedding_date: { $gte: startOfDay, $lte: endOfDay },
+        shift: effectiveShift,
+        status: { $nin: ["da_huy"] },
+      });
+
+      if (conflict) {
+        const hallName = body.hall_name || currentWedding.hall_name;
+        return res.status(400).json({
+          success: false,
+          message: `Sảnh “${hallName}” đã được đặt cho tiệc “${conflict.groom_name} & ${conflict.bride_name}” ca ${effectiveShift} ngày này!`,
+        });
+      }
+    }
+
     await Wedding.findByIdAndUpdate(req.params.id, body);
     res.json({ success: true });
   } catch (err) {
@@ -149,6 +185,27 @@ export const update = async (req, res) => {
 
 export const remove = async (req, res) => {
   try {
+    const doc = await Wedding.findById(req.params.id);
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy tiệc cưới!" });
+    }
+
+    // ── Không cho xóa tiệc đang diễn ra hoặc đã hoàn thành ─────────────────
+    if (doc.status === "dang_dien_ra") {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể xóa tiệc cưới đang diễn ra!",
+      });
+    }
+    if (doc.status === "hoan_thanh") {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể xóa tiệc cưới đã hoàn thành!",
+      });
+    }
+
     const invoice = await Invoice.findOne({ wedding_id: req.params.id });
     if (invoice) {
       return res.status(400).json({
@@ -159,12 +216,7 @@ export const remove = async (req, res) => {
           ")!",
       });
     }
-    const doc = await Wedding.findByIdAndDelete(req.params.id);
-    if (!doc) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy tiệc cưới!" });
-    }
+    await Wedding.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Đã xóa tiệc cưới thành công!" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

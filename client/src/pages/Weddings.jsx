@@ -115,6 +115,26 @@ export default function Weddings() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // ── Validate deposit <= tổng tiệc ──────────────────────────────────────
+      const t = Number(formData.table_count) || 0;
+      const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
+      const foodTotal = foodPerTable * t;
+      const serviceTotal = selectedServices.reduce(
+        (s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)),
+        0,
+      );
+      const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
+      const hallTotal = (selHall?.type_id?.min_price || 0) * t;
+      const total = foodTotal + serviceTotal + hallTotal;
+      const deposit = Number(formData.deposit) || 0;
+
+      if (total > 0 && deposit > total) {
+        toast.error(
+          `Tiền đặt cọc (${deposit.toLocaleString("vi-VN")} đ) không được vượt quá tổng tiền tiệc (${total.toLocaleString("vi-VN")} đ)!`,
+        );
+        return;
+      }
+
       const payload = {
         ...formData,
         foods: selectedFoods,
