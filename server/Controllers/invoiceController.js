@@ -206,12 +206,11 @@ export const update = async (req, res) => {
           const late_days =
             diffMs > 0 ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1 : 0;
 
-          // Tính phạt trên số tiền thực còn nợ (trừ các lần đã trả trước đó)
-          const actual_still_owed = invoice.remaining_amount - (invoice.paid_amount || 0);
+          // Tính phạt trên tổng tiền hóa đơn
           updates.late_days = late_days;
           updates.penalty_amount =
             late_days > 0
-              ? Math.round(actual_still_owed * penaltyRate * late_days)
+              ? Math.round(invoice.total_amount * penaltyRate * late_days)
               : 0;
         }
       } else {
