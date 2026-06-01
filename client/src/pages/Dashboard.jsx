@@ -19,10 +19,19 @@ export default function Dashboard() {
       const weddings = weddingsRes.data.data || [];
       const invoices = invoicesRes.data.data || [];
 
+      // Lấy danh sách các wedding_id đã có hóa đơn
+      const invoiceWeddingIds = new Set(invoices.map((inv) => String(inv.wedding_id)));
+
+      // Tính tổng tiền cọc của các tiệc đã xác nhận/đang diễn ra/hoàn thành/đã hủy mà CHƯA có hóa đơn
+      const uninvoicedWeddingsDeposit = weddings
+        .filter((w) => !invoiceWeddingIds.has(String(w.id || w._id)))
+        .filter((w) => ["da_xac_nhan", "dang_dien_ra", "hoan_thanh", "da_huy"].includes(w.status))
+        .reduce((sum, w) => sum + (w.deposit || 0), 0);
+
       const totalRevenue = invoices.reduce(
         (sum, inv) => sum + (inv.total_amount || 0) + (inv.penalty_amount || 0),
         0,
-      );
+      ) + uninvoicedWeddingsDeposit;
 
       const totalDebt = invoices
         .filter((inv) => inv.status !== "paid")
@@ -38,7 +47,7 @@ export default function Dashboard() {
         (sum, inv) =>
           sum + (inv.deposit || 0) + (inv.paid_amount || 0),
         0,
-      );
+      ) + uninvoicedWeddingsDeposit;
 
       setStats({
         totalWeddings: weddings.length,

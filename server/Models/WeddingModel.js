@@ -58,6 +58,8 @@ const WeddingSchema = new mongoose.Schema(
 
     payment_due_date: { type: Date },
 
+    hall_min_price: { type: Number },
+
     status: {
       type: String,
       enum: ["cho_xac_nhan", "da_xac_nhan", "dang_dien_ra", "hoan_thanh", "da_huy"],

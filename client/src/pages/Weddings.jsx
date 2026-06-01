@@ -114,6 +114,10 @@ export default function Weddings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error("Số điện thoại phải có đúng 10 chữ số!");
+      return;
+    }
     try {
       // ── Validate deposit <= tổng tiệc ──────────────────────────────────────
       const t = Number(formData.table_count) || 0;
@@ -124,7 +128,15 @@ export default function Weddings() {
         0,
       );
       const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
-      const hallTotal = (selHall?.type_id?.min_price || 0) * t;
+      
+      let pricePerTable = 0;
+      if (formData.hall_min_price !== undefined && formData.hall_min_price !== null && formData.hall_min_price !== "") {
+        pricePerTable = Number(formData.hall_min_price);
+      } else {
+        pricePerTable = selHall?.type_id?.min_price || 0;
+      }
+      
+      const hallTotal = pricePerTable * t;
       const total = foodTotal + serviceTotal + hallTotal;
       const deposit = Number(formData.deposit) || 0;
 
@@ -164,6 +176,7 @@ export default function Weddings() {
       table_count: wedding.table_count.toString(),
       reserve_table_count: wedding.reserve_table_count.toString(),
       deposit: wedding.deposit.toString(),
+      hall_min_price: wedding.hall_min_price,
     });
     setSelectedFoods(wedding.foods || []);
     setSelectedServices(wedding.services || []);
@@ -415,8 +428,8 @@ export default function Weddings() {
                     onChange={async (e) => {
                       const newStatus = e.target.value;
                       try {
-                        await axios.put(`/api/weddings/${wedding.id}`, { status: newStatus });
-                        toast.success(`Cập nhật trạng thái → ${statusLabel[newStatus]}`);
+                        const res = await axios.put(`/api/weddings/${wedding.id}`, { status: newStatus });
+                        toast.success(res.data.message || `Cập nhật trạng thái → ${statusLabel[newStatus]}`);
                         fetchWeddings();
                       } catch (err) {
                         toast.error(err.response?.data?.message || "Lỗi cập nhật trạng thái!");
@@ -560,9 +573,10 @@ export default function Weddings() {
                       type="text"
                       required
                       value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setFormData({ ...formData, phone: val });
+                      }}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     />
                   </div>
@@ -834,8 +848,14 @@ export default function Weddings() {
                     const foodTotal = foodPerTable * t;
                     const serviceTotal = selectedServices.reduce((s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)), 0);
                     const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
-                    // type_id đã được populate → chứa { _id, name, min_price }
-                    const pricePerTable = selHall?.type_id?.min_price || 0;
+                    
+                    let pricePerTable = 0;
+                    if (formData.hall_min_price !== undefined && formData.hall_min_price !== null && formData.hall_min_price !== "") {
+                      pricePerTable = Number(formData.hall_min_price);
+                    } else {
+                      pricePerTable = selHall?.type_id?.min_price || 0;
+                    }
+                    
                     const hallTotal = pricePerTable * t;
                     const total = foodTotal + serviceTotal + hallTotal;
                     const deposit = Number(formData.deposit) || 0;

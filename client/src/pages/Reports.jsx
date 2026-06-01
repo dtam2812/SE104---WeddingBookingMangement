@@ -85,8 +85,19 @@ export default function Reports() {
     try {
       const res = await axios.get("/api/rules");
       const rules = res.data.data || [];
-      const rule = rules.find((r) => r.code === "PENALTY_RATE");
-      if (rule) setPenaltyRate(Number(rule.value));
+      const rule = rules.find((r) => r.code === "TIEN_PHAT" || r.code === "PENALTY_RATE");
+      if (rule) {
+        const parsed = parseFloat(rule.value);
+        if (!isNaN(parsed)) {
+          if (typeof rule.value === "string" && rule.value.includes("%")) {
+            setPenaltyRate(parsed / 100);
+          } else if (parsed >= 1) {
+            setPenaltyRate(parsed / 100);
+          } else {
+            setPenaltyRate(parsed);
+          }
+        }
+      }
     } catch { /* keep fallback */ }
   };
 
@@ -183,7 +194,7 @@ export default function Reports() {
 
     const columns = [
       { header: "STT", key: "stt", width: 8 },
-      { header: "Mã hóa đơn", key: "ma_hd", width: 14 },
+      { header: "Mã hóa đơn", key: "ma_hd", width: 16 },
       { header: "Mã tiệc", key: "ma_tc", width: 12 },
       { header: "Tên cô dâu", key: "bride", width: 20 },
       { header: "Tên chú rể", key: "groom", width: 20 },
@@ -192,6 +203,7 @@ export default function Reports() {
       { header: "Số bàn", key: "tables", width: 10 },
       { header: "Tổng tiền", key: "total", width: 18 },
       { header: "Trạng thái", key: "status", width: 18 },
+      { header: "Ghi chú", key: "notes", width: 30 },
     ];
 
     sheet2.columns = columns;
@@ -212,10 +224,24 @@ export default function Reports() {
     // Data rows
     reportData.forEach((r, idx) => {
       const w = weddingMap[String(r.wedding_id)];
-      const statusLabels = { unpaid: "Chưa thanh toán", paid: "Đã thanh toán", partial: "Thanh toán một phần" };
+      const statusLabels = { 
+        unpaid: "Chưa thanh toán", 
+        paid: "Đã thanh toán", 
+        partial: "Thanh toán một phần",
+        cancelled_forfeit: "Hủy sát ngày",
+        uninvoiced_deposit: "Chưa lập HĐ"
+      };
+      
+      let noteValue = "";
+      if (r.status === "cancelled_forfeit") {
+        noteValue = "Hủy sát ngày - Không hoàn cọc";
+      } else if (r.status === "uninvoiced_deposit") {
+        noteValue = "Chưa lập hóa đơn - Chỉ cọc";
+      }
+
       const row = sheet2.addRow({
         stt: idx + 1,
-        ma_hd: `HD${String(r.display_num).padStart(3, "0")}`,
+        ma_hd: r.is_virtual ? (r.status === "cancelled_forfeit" ? "Hủy/Cọc" : "Chưa lập HĐ") : `HD${String(r.display_num).padStart(3, "0")}`,
         ma_tc: w ? `TC${String(w.display_num).padStart(3, "0")}` : "???",
         bride: r.bride_name,
         groom: r.groom_name,
@@ -224,6 +250,7 @@ export default function Reports() {
         tables: r.table_count,
         total: r.total_amount + (r.penalty_amount || 0),
         status: statusLabels[r.status] || r.status,
+        notes: noteValue,
       });
 
       // Zebra striping
@@ -426,16 +453,25 @@ export default function Reports() {
               <th className="py-4 px-4 font-semibold text-right">SỐ BÀN</th>
               <th className="py-4 px-4 font-semibold text-right">DOANH THU</th>
               <th className="py-4 px-4 font-semibold">TRẠNG THÁI</th>
+              <th className="py-4 px-4 font-semibold">GHI CHÚ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {reportData.map((r) => {
               const w = weddingMap[String(r.wedding_id)];
-              const statusLabels = { unpaid: "Chưa thanh toán", paid: "Đã thanh toán", partial: "Thanh toán một phần" };
+              const statusLabels = { 
+                unpaid: "Chưa thanh toán", 
+                paid: "Đã thanh toán", 
+                partial: "Thanh toán một phần",
+                cancelled_forfeit: "Hủy sát ngày",
+                uninvoiced_deposit: "Chưa lập HĐ"
+              };
               const statusStyles = {
                 paid: "bg-emerald-50 text-emerald-600 border border-emerald-200",
                 partial: "bg-amber-50 text-amber-600 border border-amber-200",
                 unpaid: "bg-slate-50 text-slate-600 border border-slate-200",
+                cancelled_forfeit: "bg-rose-50 text-rose-600 border border-rose-200",
+                uninvoiced_deposit: "bg-sky-50 text-sky-600 border border-sky-200",
               };
               return (
               <tr
@@ -443,7 +479,7 @@ export default function Reports() {
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
                 <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
-                  HD{String(r.display_num).padStart(3, "0")}
+                  {r.is_virtual ? (r.status === "cancelled_forfeit" ? "Hủy/Cọc" : "Chưa lập HĐ") : `HD${String(r.display_num).padStart(3, "0")}`}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {w ? `TC${String(w.display_num).padStart(3, "0")}` : "???"}
@@ -461,12 +497,15 @@ export default function Reports() {
                     {statusLabels[r.status] || r.status}
                   </span>
                 </td>
+                <td className="py-4 px-4 text-slate-600 text-xs whitespace-nowrap">
+                  {r.status === "cancelled_forfeit" ? "Hủy sát ngày - Không hoàn cọc" : r.status === "uninvoiced_deposit" ? "Chưa lập hóa đơn - Chỉ cọc" : ""}
+                </td>
               </tr>
               );
             })}
             {reportData.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-slate-500">
+                <td colSpan={10} className="py-8 text-center text-slate-500">
                   Không có dữ liệu doanh thu.
                 </td>
               </tr>

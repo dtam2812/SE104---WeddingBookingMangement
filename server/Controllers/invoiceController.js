@@ -44,21 +44,66 @@ export const getRevenueReport = async (req, res) => {
     }
 
     const invoices = await Invoice.find(filter);
+    
+    // Lấy danh sách wedding_id đã có hóa đơn
+    const invoicedWeddingIds = invoices.map(inv => inv.wedding_id.toString());
+
+    // Bộ lọc tìm các tiệc cưới chưa lập hóa đơn nhưng đã xác nhận/diễn ra/kết thúc/đã hủy mà có cọc > 0
+    const weddingFilter = {
+      _id: { $nin: invoicedWeddingIds },
+      status: { $in: ["da_xac_nhan", "dang_dien_ra", "hoan_thanh", "da_huy"] },
+      deposit: { $gt: 0 }
+    };
+
+    if (type === "all") {
+      // Không lọc ngày
+    } else if (month && year) {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 1);
+      weddingFilter.wedding_date = { $gte: start, $lt: end };
+    } else if (year) {
+      const start = new Date(year, 0, 1);
+      const end = new Date(Number(year) + 1, 0, 1);
+      weddingFilter.wedding_date = { $gte: start, $lt: end };
+    }
+
+    const unInvoicedWeddings = await Wedding.find(weddingFilter);
+    const unInvoicedDepositTotal = unInvoicedWeddings.reduce((sum, w) => sum + (w.deposit || 0), 0);
+
+    const virtualInvoices = unInvoicedWeddings.map((w) => ({
+      id: `W_${w._id}`,
+      wedding_id: w._id,
+      groom_name: w.groom_name,
+      bride_name: w.bride_name,
+      wedding_date: w.wedding_date,
+      hall_name: w.hall_name,
+      table_count: w.table_count || 0,
+      total_amount: w.deposit, // Tiền cọc thu được coi như doanh thu thực tế phát sinh
+      deposit: w.deposit,
+      remaining_amount: 0,
+      paid_amount: 0,
+      late_days: 0,
+      penalty_amount: 0,
+      status: w.status === "da_huy" ? "cancelled_forfeit" : "uninvoiced_deposit",
+      is_virtual: true
+    }));
+
     const total_revenue = invoices.reduce(
       (sum, inv) => sum + inv.total_amount + inv.penalty_amount,
       0,
-    );
+    ) + unInvoicedDepositTotal;
+
     const total_penalty = invoices.reduce(
       (sum, inv) => sum + inv.penalty_amount,
       0,
     );
-    const total_weddings = invoices.length;
+    const total_weddings = invoices.length + unInvoicedWeddings.length;
     const total_completed = invoices.filter((inv) => inv.status === "paid").length;
     const avg_revenue = total_weddings > 0 ? Math.round(total_revenue / total_weddings) : 0;
 
     res.json({
       success: true,
-      data: invoices,
+      data: [...invoices, ...virtualInvoices],
       total_revenue,
       total_penalty,
       total_weddings,
@@ -88,6 +133,13 @@ export const create = async (req, res) => {
         .json({ success: false, message: "Không tìm thấy tiệc cưới!" });
     }
 
+    if (wedding.status !== "hoan_thanh") {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ có thể lập hóa đơn cho tiệc cưới ở trạng thái Kết thúc!",
+      });
+    }
+
     const actualTableCount =
       table_count && Number(table_count) > 0
         ? Number(table_count)
@@ -104,14 +156,18 @@ export const create = async (req, res) => {
       0,
     );
 
-    // Tiền bàn = min_price của loại sảnh * số bàn
+    // Tiền bàn = locked min_price của loại sảnh * số bàn
     let hallTotal = 0;
     if (wedding.hall_id) {
-      const hall = await Hall.findById(wedding.hall_id);
-      if (hall && hall.type_id) {
-        const hallType = await HallType.findById(hall.type_id);
-        if (hallType) {
-          hallTotal = (hallType.min_price || 0) * actualTableCount;
+      if (wedding.hall_min_price !== undefined && wedding.hall_min_price !== null) {
+        hallTotal = wedding.hall_min_price * actualTableCount;
+      } else {
+        const hall = await Hall.findById(wedding.hall_id);
+        if (hall && hall.type_id) {
+          const hallType = await HallType.findById(hall.type_id);
+          if (hallType) {
+            hallTotal = (hallType.min_price || 0) * actualTableCount;
+          }
         }
       }
     }
@@ -180,44 +236,57 @@ export const update = async (req, res) => {
 
       const new_paid_amount = (invoice.paid_amount || 0) + paying_now;
 
-      // Fetch penalty rate
-      const penaltyRule = await Rule.findOne({ code: "PENALTY_RATE" });
-      const penaltyRate = penaltyRule ? Number(penaltyRule.value) : 0.01;
+      // Fetch penalty rate (hỗ trợ cả TIEN_PHAT và PENALTY_RATE)
+      const penaltyRule = await Rule.findOne({ code: { $in: ["TIEN_PHAT", "PENALTY_RATE"] } });
+      let penaltyRate = 0.01; // fallback 1%
+      if (penaltyRule) {
+        const parsed = parseFloat(penaltyRule.value);
+        if (!isNaN(parsed)) {
+          if (typeof penaltyRule.value === "string" && penaltyRule.value.includes("%")) {
+            penaltyRate = parsed / 100;
+          } else if (parsed >= 1) {
+            penaltyRate = parsed / 100;
+          } else {
+            penaltyRate = parsed;
+          }
+        }
+      }
 
-      if (new_paid_amount >= invoice.remaining_amount) {
-        // ── Fully paid ────────────────────────────────────────────────────
+      // 1. Tính số ngày trễ và tiền phạt tại thời điểm hiện tại (nếu có áp dụng phạt)
+      let late_days = 0;
+      let penalty_amount = 0;
+      if (invoice.apply_penalty) {
+        const dueDate = invoice.payment_due_date
+          ? new Date(invoice.payment_due_date)
+          : new Date(invoice.wedding_date);
+        const penaltyStart = new Date(dueDate);
+        penaltyStart.setDate(penaltyStart.getDate() + 1);
+        penaltyStart.setHours(0, 0, 0, 0);
+
+        const payDate = new Date();
+        payDate.setHours(0, 0, 0, 0);
+
+        const diffMs = payDate - penaltyStart;
+        late_days = diffMs > 0 ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1 : 0;
+        penalty_amount = late_days > 0 ? Math.round(invoice.remaining_amount * penaltyRate * late_days) : 0;
+      }
+
+      // Tổng số tiền cần thanh toán bao gồm nợ gốc và tiền phạt tính đến thời điểm hiện tại
+      const total_required = invoice.remaining_amount + penalty_amount;
+
+      if (new_paid_amount >= total_required) {
+        // ── Fully paid (Thanh toán đủ cả gốc lẫn phạt) ──────────────────────
         updates.paid_amount = new_paid_amount;
         updates.status = "paid";
         updates.payment_date = new Date();
-
-        if (invoice.apply_penalty) {
-          // Penalty starts 1 day after payment_due_date (or wedding_date)
-          const dueDate = invoice.payment_due_date
-            ? new Date(invoice.payment_due_date)
-            : new Date(invoice.wedding_date);
-          const penaltyStart = new Date(dueDate);
-          penaltyStart.setDate(penaltyStart.getDate() + 1);
-          penaltyStart.setHours(0, 0, 0, 0);
-
-          const payDate = new Date();
-          payDate.setHours(0, 0, 0, 0);
-
-          const diffMs = payDate - penaltyStart;
-          const late_days =
-            diffMs > 0 ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1 : 0;
-
-          // Tính phạt trên tổng tiền hóa đơn
-          updates.late_days = late_days;
-          updates.penalty_amount =
-            late_days > 0
-              ? Math.round(invoice.total_amount * penaltyRate * late_days)
-              : 0;
-        }
+        updates.late_days = late_days;
+        updates.penalty_amount = penalty_amount;
       } else {
-        // ── Partial payment ───────────────────────────────────────────────
+        // ── Partial payment (Thanh toán một phần) ───────────────────────────
         updates.paid_amount = new_paid_amount;
         updates.status = "partial";
-        // No payment_date or penalty yet — will be applied on final payment
+        // Đối với thanh toán một phần, chưa chốt ngày thanh toán cuối cùng
+        // nên ta không cập nhật cố định payment_date, late_days và penalty_amount.
       }
     }
 
@@ -253,11 +322,11 @@ export const remove = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Không tìm thấy hóa đơn!" });
     }
-    // ── Không cho xóa hóa đơn đã thanh toán ─────────────────────────────────
-    if (doc.status === "paid") {
+    // ── Không cho xóa hóa đơn đã thanh toán hoặc thanh toán một phần ─────────
+    if (doc.status === "paid" || doc.status === "partial") {
       return res.status(400).json({
         success: false,
-        message: "Không thể xóa hóa đơn đã thanh toán! Vui lòng hoàn tác thanh toán trước.",
+        message: "Không thể xóa hóa đơn đã thanh toán hoặc thanh toán một phần! Vui lòng hoàn tác thanh toán trước.",
       });
     }
     await Invoice.findByIdAndDelete(req.params.id);
