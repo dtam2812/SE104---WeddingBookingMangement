@@ -7,63 +7,24 @@ const authHeader = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
 });
 
-const statusOptions = [
-  { value: "available", label: "Đang hoạt động" },
-  { value: "unavailable", label: "Đang bảo trì" },
-];
-
-const statusLabel = {
-  available: "Đang hoạt động",
-  unavailable: "Đang bảo trì",
-  Active: "Đang hoạt động",
-  Inactive: "Đang bảo trì",
-  maintaining: "Đang bảo trì",
-};
-
-const statusStyle = {
-  available: "bg-emerald-50 text-emerald-600 border border-emerald-200",
-  unavailable: "bg-red-50 text-red-500 border border-red-200",
-  Active: "bg-emerald-50 text-emerald-600 border border-emerald-200",
-  Inactive: "bg-red-50 text-red-500 border border-red-200",
-  maintaining: "bg-red-50 text-red-500 border border-red-200",
-};
-
-const normalizeStatus = (s) => {
-  const map = {
-    Active: "available",
-    active: "available",
-    Inactive: "unavailable",
-    inactive: "unavailable",
-    maintaining: "unavailable",
-  };
-  return map[s] ?? s ?? "available";
-};
-
-export default function Halls() {
-  const [halls, setHalls] = useState([]);
+export default function HallTypes() {
   const [hallTypes, setHallTypes] = useState([]);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   const [formData, setFormData] = useState({
     name: "",
-    type_id: "",
-    max_tables: "",
-    status: "available",
+    description: "",
+    capacity_min: "",
+    capacity_max: "",
   });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [error, setError] = useState("");
-  const itemsPerPage = 8;
 
   useEffect(() => {
-    fetchHalls();
     fetchHallTypes();
   }, []);
-
-  const fetchHalls = async () => {
-    const res = await axios.get("/api/halls");
-    setHalls(res.data.data || []);
-  };
 
   const fetchHallTypes = async () => {
     const res = await axios.get("/api/hall-types");
@@ -75,75 +36,76 @@ export default function Halls() {
     setError("");
     try {
       if (editingId) {
-        await axios.put(`/api/halls/${editingId}`, formData, authHeader());
-        toast.success("Cập nhật sảnh thành công!");
+        await axios.put(`/api/hall-types/${editingId}`, formData, authHeader());
+        toast.success("Cập nhật loại sảnh thành công!");
       } else {
-        await axios.post("/api/halls", formData, authHeader());
-        toast.success("Thêm sảnh mới thành công!");
+        await axios.post("/api/hall-types", formData, authHeader());
+        toast.success("Thêm loại sảnh mới thành công!");
       }
       setIsModalOpen(false);
-      fetchHalls();
+      fetchHallTypes();
     } catch (err) {
       setError(err.response?.data?.message || "Có lỗi xảy ra!");
     }
   };
 
-  const handleEdit = (hall) => {
-    setEditingId(hall.id);
+  const handleEdit = (item) => {
+    setEditingId(item.id);
     setFormData({
-      name: hall.name,
-      type_id: hall.type_id?._id || hall.type_id?.id || hall.type_id || "",
-      max_tables: hall.max_tables.toString(),
-      status: normalizeStatus(hall.status),
+      name: item.name,
+      description: item.description || "",
+      capacity_min: item.capacity_min?.toString() || "",
+      capacity_max: item.capacity_max?.toString() || "",
     });
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
-    if (confirm("Bạn có chắc chắn muốn xóa sảnh này?")) {
+    if (confirm("Bạn có chắc chắn muốn xóa loại sảnh này?")) {
       try {
-        await axios.delete(`/api/halls/${id}`, authHeader());
-        toast.success("Đã xóa sảnh thành công!");
-        fetchHalls();
+        await axios.delete(`/api/hall-types/${id}`, authHeader());
+        toast.success("Đã xóa loại sảnh thành công!");
+        fetchHallTypes();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa sảnh!");
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa loại sảnh!");
       }
     }
   };
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ name: "", type_id: "", max_tables: "", status: "available" });
+    setFormData({ name: "", description: "", capacity_min: "", capacity_max: "" });
+    setError("");
     setIsModalOpen(true);
   };
 
-  const filteredHalls = halls.filter((h) =>
+  const filtered = hallTypes.filter((h) =>
     h.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const totalPages = Math.ceil(filteredHalls.length / itemsPerPage);
-  const currentHalls = filteredHalls.slice(
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const currentItems = filtered.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-800 uppercase">
-          QUẢN LÝ SẢNH
+          QUẢN LÝ LOẠI SẢNH
         </h1>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           <div className="relative flex-1 sm:flex-none">
             <input
               type="text"
-              placeholder="Tìm kiếm sảnh..."
+              placeholder="Tìm kiếm loại sảnh..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full sm:w-64 pl-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+              className="w-full sm:w-48 pl-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
             />
             <Search
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -154,17 +116,17 @@ export default function Halls() {
             onClick={openNewModal}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
           >
-            <Plus size={16} /> Thêm Sảnh
+            <Plus size={16} /> Thêm Loại Sảnh
           </button>
         </div>
       </div>
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-base font-semibold text-slate-800">
-          Danh sách sảnh
+          Danh sách loại sảnh
         </h2>
         <span className="text-sm font-medium text-slate-600">
-          Tổng số sảnh: {filteredHalls.length}
+          Tổng số: {filtered.length}
         </span>
       </div>
 
@@ -173,46 +135,44 @@ export default function Halls() {
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
               <th className="py-4 px-4 font-semibold">STT</th>
-              <th className="py-4 px-4 font-semibold">TÊN SẢNH</th>
-              <th className="py-4 px-4 font-semibold">LOẠI SẢNH</th>
-              <th className="py-4 px-4 font-semibold">SỐ LƯỢNG BÀN TỐI ĐA</th>
-              <th className="py-4 px-4 font-semibold">TRẠNG THÁI</th>
+              <th className="py-4 px-4 font-semibold">TÊN LOẠI SẢNH</th>
+              <th className="py-4 px-4 font-semibold">MÔ TẢ</th>
+              <th className="py-4 px-4 font-semibold">SỨC CHỨA TỐI THIỂU</th>
+              <th className="py-4 px-4 font-semibold">SỨC CHỨA TỐI ĐA</th>
               <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {currentHalls.map((hall, index) => (
+            {currentItems.map((item, index) => (
               <tr
-                key={hall.id}
+                key={item.id}
                 className="hover:bg-slate-50 transition-colors text-sm"
               >
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {(currentPage - 1) * itemsPerPage + index + 1}
                 </td>
                 <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
-                  {hall.name}
+                  {item.name}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {hall.type_id?.name || "-"}
+                  {item.description || "-"}
                 </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{hall.max_tables}</td>
-                <td className="py-4 px-4 whitespace-nowrap">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${statusStyle[hall.status] || ""}`}
-                  >
-                    {statusLabel[hall.status] || hall.status}
-                  </span>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {item.capacity_min || "-"}
+                </td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {item.capacity_max || "-"}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <button
-                      onClick={() => handleEdit(hall)}
+                      onClick={() => handleEdit(item)}
                       className="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
                     >
                       Sửa
                     </button>
                     <button
-                      onClick={() => handleDelete(hall.id)}
+                      onClick={() => handleDelete(item.id)}
                       className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
                     >
                       Xóa
@@ -221,10 +181,10 @@ export default function Halls() {
                 </td>
               </tr>
             ))}
-            {currentHalls.length === 0 && (
+            {currentItems.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-8 text-center text-slate-500 whitespace-nowrap">
-                  Không tìm thấy sảnh nào.
+                  Không tìm thấy loại sảnh nào.
                 </td>
               </tr>
             )}
@@ -267,9 +227,9 @@ export default function Halls() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 pb-4">
+            <div className="p-6 pb-4 border-b border-slate-100">
               <h2 className="text-xl font-bold text-slate-800">
-                {editingId ? "Chỉnh Sửa Sảnh" : "Thêm Sảnh Mới"}
+                {editingId ? "Chỉnh Sửa Loại Sảnh" : "Thêm Loại Sảnh Mới"}
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6 pt-0 space-y-4">
@@ -280,7 +240,7 @@ export default function Halls() {
               )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Tên sảnh:
+                  Tên loại sảnh:
                 </label>
                 <input
                   type="text"
@@ -294,58 +254,46 @@ export default function Halls() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Loại sảnh:
+                  Mô tả:
                 </label>
-                <select
-                  required
-                  value={formData.type_id}
+                <textarea
+                  rows={3}
+                  value={formData.description}
                   onChange={(e) =>
-                    setFormData({ ...formData, type_id: e.target.value })
+                    setFormData({ ...formData, description: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
-                >
-                  <option value="">-- Chọn loại sảnh --</option>
-                  {hallTypes.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Số lượng bàn tối đa:
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  value={formData.max_tables}
-                  onChange={(e) =>
-                    setFormData({ ...formData, max_tables: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all resize-none text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Trạng thái:
-                </label>
-                <select
-                  required
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
-                >
-                  {/*  enum Model */}
-                  {statusOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Sức chứa tối thiểu:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.capacity_min}
+                    onChange={(e) =>
+                      setFormData({ ...formData, capacity_min: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Sức chứa tối đa:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.capacity_max}
+                    onChange={(e) =>
+                      setFormData({ ...formData, capacity_max: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  />
+                </div>
               </div>
               <div className="flex justify-center gap-3 pt-6">
                 <button

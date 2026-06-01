@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
+import { toast } from "react-toastify";
 import axios from "../common";
 
 const authHeader = () => ({
@@ -12,6 +13,7 @@ export default function Rules() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [error, setError] = useState("");
   const itemsPerPage = 8;
   const [formData, setFormData] = useState({
     code: "",
@@ -29,17 +31,20 @@ export default function Rules() {
   };
 
   const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
     try {
-      e.preventDefault();
       if (editingId) {
         await axios.put(`/api/rules/${editingId}`, formData, authHeader());
+        toast.success("Cập nhật quy định thành công!");
       } else {
         await axios.post("/api/rules", formData, authHeader());
+        toast.success("Thêm quy định mới thành công!");
       }
       setIsModalOpen(false);
       fetchRules();
     } catch (err) {
-      alert(err.response?.data?.message || "Có lỗi xảy ra!");
+      setError(err.response?.data?.message || "Có lỗi xảy ra!");
     }
   };
 
@@ -55,8 +60,13 @@ export default function Rules() {
 
   const handleDelete = async (id) => {
     if (confirm("Bạn có chắc chắn muốn xóa quy định này?")) {
-      await axios.delete(`/api/rules/${id}`, authHeader());
-      fetchRules();
+      try {
+        await axios.delete(`/api/rules/${id}`, authHeader());
+        toast.success("Đã xóa quy định thành công!");
+        fetchRules();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa quy định!");
+      }
     }
   };
 
@@ -213,6 +223,11 @@ export default function Rules() {
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6 pt-0 space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Mã quy định:

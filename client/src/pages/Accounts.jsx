@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
+import { toast } from "react-toastify";
 import axios from "../common";
 
 const authHeader = () => ({
@@ -37,6 +38,7 @@ export default function Accounts() {
     role: "staff",
     status: "active",
   });
+  const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
@@ -51,16 +53,19 @@ export default function Accounts() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     try {
       if (editingId) {
         await axios.put(`/api/users/${editingId}`, formData, authHeader());
+        toast.success("Cập nhật tài khoản thành công!");
       } else {
         await axios.post("/api/users", formData, authHeader());
+        toast.success("Thêm tài khoản mới thành công!");
       }
       setIsModalOpen(false);
       fetchAccounts();
     } catch (err) {
-      alert(err.response?.data?.message || "Có lỗi xảy ra!");
+      setError(err.response?.data?.message || "Có lỗi xảy ra!");
     }
   };
 
@@ -82,9 +87,10 @@ export default function Accounts() {
     if (confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) {
       try {
         await axios.delete(`/api/users/${id}`, authHeader());
+        toast.success("Đã xóa tài khoản thành công!");
         fetchAccounts();
       } catch (err) {
-        alert(err.response?.data?.message || "Có lỗi xảy ra!");
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa tài khoản!");
       }
     }
   };
@@ -268,6 +274,11 @@ export default function Accounts() {
               onSubmit={handleSubmit}
               className="p-6 pt-0 space-y-4 max-h-[75vh] overflow-y-auto"
             >
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Họ tên:

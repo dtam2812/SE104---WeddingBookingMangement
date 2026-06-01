@@ -56,10 +56,12 @@ const WeddingSchema = new mongoose.Schema(
     foods: [WeddingFoodSchema],
     services: [WeddingServiceSchema],
 
+    payment_due_date: { type: Date },
+
     status: {
       type: String,
-      enum: ["pending", "confirmed", "cancelled", "completed"],
-      default: "pending",
+      enum: ["cho_xac_nhan", "da_xac_nhan", "dang_dien_ra", "hoan_thanh", "da_huy"],
+      default: "cho_xac_nhan",
     },
   },
   {

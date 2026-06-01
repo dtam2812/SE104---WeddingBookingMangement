@@ -12,9 +12,12 @@ import Halls from "./pages/Halls";
 import Foods from "./pages/Foods";
 import Services from "./pages/Services";
 import Rules from "./pages/Rules";
+import HallTypes from "./pages/HallTypes";
 import Weddings from "./pages/Weddings";
 import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { useState, useEffect } from "react";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -51,6 +54,7 @@ export default function App() {
 
   return (
     <Router>
+      <ToastContainer position="top-right" autoClose={3000} />
       <Routes>
         <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/resetPassword" element={<ResetPassword />} />
@@ -75,6 +79,10 @@ export default function App() {
           <Route
             path="halls"
             element={user?.role === "admin" ? <Halls /> : <Navigate to="/" />}
+          />
+          <Route
+            path="hall-types"
+            element={user?.role === "admin" ? <HallTypes /> : <Navigate to="/" />}
           />
           <Route
             path="foods"

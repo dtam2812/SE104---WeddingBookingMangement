@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Plus, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import axios from "../common";
 
 const formatDateVN = (dateStr) => {
@@ -27,6 +28,12 @@ export default function Weddings() {
 
   const toDateInput = (d) => d ? d.slice(0, 10) : "";
 
+  const getTomorrow = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
   const [formData, setFormData] = useState({
     groom_name: "",
     bride_name: "",
@@ -37,6 +44,7 @@ export default function Weddings() {
     table_count: "",
     reserve_table_count: "0",
     deposit: "",
+    payment_due_date: "",
   });
 
   const [selectedFoods, setSelectedFoods] = useState([]);
@@ -94,6 +102,7 @@ export default function Weddings() {
         ...formData,
         foods: selectedFoods,
         services: selectedServices,
+        payment_due_date: formData.payment_due_date || formData.wedding_date,
       };
       if (editingId) {
         await axios.put(`/api/weddings/${editingId}`, payload);
@@ -103,7 +112,7 @@ export default function Weddings() {
       setIsModalOpen(false);
       fetchWeddings();
     } catch (err) {
-      alert(err.response?.data?.message || "Có lỗi xảy ra khi lưu tiệc cưới!");
+      toast.error(err.response?.data?.message || "Có lỗi xảy ra khi lưu tiệc cưới!");
     }
   };
 
@@ -119,6 +128,9 @@ export default function Weddings() {
       table_count: wedding.table_count.toString(),
       reserve_table_count: wedding.reserve_table_count.toString(),
       deposit: wedding.deposit.toString(),
+      payment_due_date: wedding.payment_due_date
+        ? toDateInput(wedding.payment_due_date)
+        : toDateInput(wedding.wedding_date),
     });
     setSelectedFoods(wedding.foods || []);
     setSelectedServices(wedding.services || []);
@@ -136,13 +148,14 @@ export default function Weddings() {
         await axios.delete(`/api/weddings/${id}`);
         fetchWeddings();
       } catch (err) {
-        alert(err.response?.data?.message || "Có lỗi xảy ra khi xóa tiệc cưới!");
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa tiệc cưới!");
       }
     }
   };
 
   const openNewModal = () => {
     setEditingId(null);
+    const tomorrow = getTomorrow();
     setFormData({
       groom_name: "",
       bride_name: "",
@@ -153,6 +166,7 @@ export default function Weddings() {
       table_count: "",
       reserve_table_count: "0",
       deposit: "",
+      payment_due_date: "",
     });
     setSelectedFoods([]);
     setSelectedServices([]);
@@ -197,7 +211,7 @@ export default function Weddings() {
         matchMonth = (dateObj.getMonth() + 1).toString() === filterMonth;
       if (filterYear)
         matchYear = dateObj.getFullYear().toString() === filterYear;
-      if (filterDate) matchDate = w.wedding_date === filterDate;
+      if (filterDate) matchDate = w.wedding_date.slice(0, 10) === filterDate;
     }
     if (filterHall)
       matchHall = (w.hall_id || "").toString() === filterHall.toString();
@@ -316,6 +330,7 @@ export default function Weddings() {
               <th className="py-4 px-4 font-semibold">Ngày</th>
               <th className="py-4 px-4 font-semibold">Ca</th>
               <th className="py-4 px-4 font-semibold">Số bàn</th>
+              <th className="py-4 px-4 font-semibold">Trạng thái</th>
               <th className="py-4 px-4 font-semibold text-center">Hành động</th>
             </tr>
           </thead>
@@ -344,6 +359,23 @@ export default function Weddings() {
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{wedding.shift}</td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {wedding.table_count}
+                </td>
+                <td className="py-4 px-4 whitespace-nowrap">
+                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                    wedding.status === "cho_xac_nhan" ? "bg-amber-50 text-amber-600" :
+                    wedding.status === "da_xac_nhan" ? "bg-blue-50 text-blue-600" :
+                    wedding.status === "dang_dien_ra" ? "bg-emerald-50 text-emerald-600" :
+                    wedding.status === "hoan_thanh" ? "bg-indigo-50 text-indigo-600" :
+                    wedding.status === "da_huy" ? "bg-red-50 text-red-500" :
+                    "bg-slate-50 text-slate-500"
+                  }`}>
+                    {wedding.status === "cho_xac_nhan" ? "Chờ xác nhận" :
+                     wedding.status === "da_xac_nhan" ? "Đã xác nhận" :
+                     wedding.status === "dang_dien_ra" ? "Đang tổ chức" :
+                     wedding.status === "hoan_thanh" ? "Hoàn thành" :
+                     wedding.status === "da_huy" ? "Đã hủy" :
+                     wedding.status || "-"}
+                  </span>
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -375,7 +407,7 @@ export default function Weddings() {
             ))}
             {currentWeddings.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td colSpan={10} className="py-8 text-center text-slate-500 whitespace-nowrap">
                   Không tìm thấy tiệc cưới nào.
                 </td>
               </tr>
@@ -482,13 +514,16 @@ export default function Weddings() {
                     <input
                       type="date"
                       required
+                      min={getTomorrow()}
                       value={formData.wedding_date}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const val = e.target.value;
                         setFormData({
                           ...formData,
-                          wedding_date: e.target.value,
-                        })
-                      }
+                          wedding_date: val,
+                          payment_due_date: formData.payment_due_date || val,
+                        });
+                      }}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     />
                   </div>
@@ -532,7 +567,7 @@ export default function Weddings() {
                               String(w.id) !== String(editingId) &&
                               w.wedding_date?.slice(0, 10) === formData.wedding_date &&
                               w.shift === formData.shift &&
-                              w.status !== "cancelled",
+                              w.status !== "da_huy",
                           );
                         })
                         .map((h) => (
@@ -577,65 +612,7 @@ export default function Weddings() {
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Tiền đặt cọc (VNĐ)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      required
-                      value={formData.deposit ? Number(formData.deposit).toLocaleString("vi-VN") : ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, deposit: e.target.value.replace(/\D/g, "") })
-                      }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                    />
-                  </div>
                 </div>
-
-                {/* Tổng tiền dự kiến */}
-                {(() => {
-                  const t = Number(formData.table_count) || 0;
-                  const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
-                  const foodTotal = foodPerTable * t;
-                  const serviceTotal = selectedServices.reduce((s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)), 0);
-                  const total = foodTotal + serviceTotal;
-                  const deposit = Number(formData.deposit) || 0;
-                  return (
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-indigo-700">Tiền thức ăn</span>
-                        <span className="font-semibold text-indigo-900">{foodTotal.toLocaleString("vi-VN")} đ</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-indigo-700">Tiền dịch vụ</span>
-                        <span className="font-semibold text-indigo-900">{serviceTotal.toLocaleString("vi-VN")} đ</span>
-                      </div>
-                      <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
-                        <span className="text-indigo-800">Tổng tiệc</span>
-                        <span className="text-indigo-900">{total.toLocaleString("vi-VN")} đ</span>
-                      </div>
-                      {deposit > 0 && (
-                        <div className="flex justify-between text-amber-700">
-                          <span>Đặt cọc</span>
-                          <span className="font-semibold">-{deposit.toLocaleString("vi-VN")} đ</span>
-                        </div>
-                      )}
-                      {deposit > 0 && (
-                        <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold">
-                          <span className={total >= deposit ? "text-indigo-800" : "text-red-600"}>Còn lại</span>
-                          <span className={total >= deposit ? "text-indigo-900" : "text-red-600"}>
-                            {Math.max(0, total - deposit).toLocaleString("vi-VN")} đ
-                          </span>
-                        </div>
-                      )}
-                      {deposit > total && (
-                        <p className="text-xs text-red-500 mt-1">⚠ Tiền cọc lớn hơn tổng tiệc!</p>
-                      )}
-                    </div>
-                  );
-                })()}
 
                 {/* Thực đơn */}
                 <div className="border-t border-slate-100 pt-6">
@@ -774,6 +751,84 @@ export default function Weddings() {
                     </div>
                   )}
                 </div>
+
+                {/* Tiền cọc + Ngày hạn thanh toán + Tổng tiệc */}
+                <div className="border-t border-slate-100 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Tiền đặt cọc (VNĐ)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        value={formData.deposit ? Number(formData.deposit).toLocaleString("vi-VN") : ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, deposit: e.target.value.replace(/\D/g, "") })
+                        }
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Ngày hạn thanh toán
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.payment_due_date}
+                        min={formData.wedding_date || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, payment_due_date: e.target.value })
+                        }
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const t = Number(formData.table_count) || 0;
+                    const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
+                    const foodTotal = foodPerTable * t;
+                    const serviceTotal = selectedServices.reduce((s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)), 0);
+                    const total = foodTotal + serviceTotal;
+                    const deposit = Number(formData.deposit) || 0;
+                    return (
+                      <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-indigo-700">Tiền thức ăn</span>
+                          <span className="font-semibold text-indigo-900">{foodTotal.toLocaleString("vi-VN")} đ</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-indigo-700">Tiền dịch vụ</span>
+                          <span className="font-semibold text-indigo-900">{serviceTotal.toLocaleString("vi-VN")} đ</span>
+                        </div>
+                        <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
+                          <span className="text-indigo-800">Tổng tiệc</span>
+                          <span className="text-indigo-900">{total.toLocaleString("vi-VN")} đ</span>
+                        </div>
+                        {deposit > 0 && (
+                          <div className="flex justify-between text-amber-700">
+                            <span>Đặt cọc</span>
+                            <span className="font-semibold">-{deposit.toLocaleString("vi-VN")} đ</span>
+                          </div>
+                        )}
+                        {deposit > 0 && (
+                          <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold">
+                            <span className={total >= deposit ? "text-indigo-800" : "text-red-600"}>Còn lại</span>
+                            <span className={total >= deposit ? "text-indigo-900" : "text-red-600"}>
+                              {Math.max(0, total - deposit).toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        )}
+                        {deposit > total && (
+                          <p className="text-xs text-red-500 mt-1">⚠ Tiền cọc lớn hơn tổng tiệc!</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               </form>
             </div>
             <div className="p-6 border-t border-slate-100 flex justify-end gap-3 flex-shrink-0 bg-slate-50 rounded-b-2xl">
@@ -843,6 +898,17 @@ export default function Weddings() {
                           ? ` (+${viewingWedding.reserve_table_count} dự trữ)`
                           : ""
                       }`,
+                    },
+                    {
+                      label: "Trạng thái",
+                      value:
+                        viewingWedding.status === "cho_xac_nhan" ? "Chờ xác nhận" :
+                        viewingWedding.status === "da_xac_nhan" ? "Đã xác nhận" :
+                        viewingWedding.status === "dang_dien_ra" ? "Đang tổ chức" :
+                        viewingWedding.status === "hoan_thanh" ? "Hoàn thành" :
+                        viewingWedding.status === "da_huy" ? "Đã hủy" :
+                        viewingWedding.status || "-",
+                      highlight: true,
                     },
                     {
                       label: "Tiền đặt cọc",

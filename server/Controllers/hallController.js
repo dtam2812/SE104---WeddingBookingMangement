@@ -2,6 +2,8 @@ import { Hall, Wedding } from "../Models/index.js";
 
 const POPULATE_TYPE = { path: "type_id", select: "name min_price" };
 
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const getAll = async (req, res) => {
   try {
     const data = await Hall.find()
@@ -45,7 +47,7 @@ export const getAvailable = async (req, res) => {
     const bookedWeddings = await Wedding.find({
       wedding_date: { $gte: startOfDay, $lte: endOfDay },
       shift,
-      status: { $nin: ["cancelled"] },
+      status: { $nin: ["da_huy"] },
     }).select("hall_id");
 
     const bookedHallIds = bookedWeddings.map((w) => w.hall_id);
@@ -63,6 +65,15 @@ export const getAvailable = async (req, res) => {
 
 export const create = async (req, res) => {
   try {
+    const { name } = req.body;
+    if (name) {
+      const existing = await Hall.findOne({ name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" } });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Tên sảnh đã tồn tại!" });
+      }
+    }
     const doc = await Hall.create(req.body);
     const populated = await doc.populate(POPULATE_TYPE);
     res.status(201).json({ success: true, data: populated });
@@ -87,6 +98,19 @@ export const update = async (req, res) => {
       req.body.status = statusMap[req.body.status] ?? req.body.status;
     }
 
+    const { name } = req.body;
+    if (name) {
+      const existing = await Hall.findOne({
+        name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" },
+        _id: { $ne: req.params.id },
+      });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Tên sảnh đã tồn tại!" });
+      }
+    }
+
     const doc = await Hall.findByIdAndUpdate(req.params.id, req.body, {
       returnDocument: "after",
       runValidators: true,
@@ -108,6 +132,18 @@ export const update = async (req, res) => {
 
 export const remove = async (req, res) => {
   try {
+    const wedding = await Wedding.findOne({ hall_id: req.params.id });
+    if (wedding) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Không thể xóa sảnh này vì đã có tiệc cưới \"" +
+          wedding.groom_name +
+          " & " +
+          wedding.bride_name +
+          '" sử dụng!',
+      });
+    }
     const doc = await Hall.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res

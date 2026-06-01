@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, X, CreditCard, RotateCcw } from "lucide-react";
+import { Search, Plus, X, CreditCard, RotateCcw, FileText } from "lucide-react";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
+import { toast } from "react-toastify";
 import axios from "../common";
 
 const statusLabel = {
@@ -17,10 +20,11 @@ const statusStyle = {
 // ─── helpers ────────────────────────────────────────────────────────────────
 const fmt = (n) => (n != null ? Number(n).toLocaleString("vi-VN") + " đ" : "-");
 
-const calcLateDays = (weddingDateStr) => {
-  const wedding = new Date(weddingDateStr);
-  // Penalty starts 1 day after wedding
-  const penaltyStart = new Date(wedding);
+const calcLateDays = (weddingDateStr, paymentDueDateStr) => {
+  const baseDate = paymentDueDateStr || weddingDateStr;
+  const base = new Date(baseDate);
+  // Penalty starts 1 day after the due date
+  const penaltyStart = new Date(base);
   penaltyStart.setDate(penaltyStart.getDate() + 1);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -54,6 +58,11 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentError, setPaymentError] = useState("");
+
+  // ── PDF Export modal ──────────────────────────────────────────────────────
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [pdfSelectedId, setPdfSelectedId] = useState("");
+  const [pdfError, setPdfError] = useState("");
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -120,7 +129,7 @@ export default function Invoices() {
     const already_paid = selectedInvoice.paid_amount || 0;
     const still_owed = selectedInvoice.remaining_amount - already_paid;
     const late_days = selectedInvoice.apply_penalty
-      ? calcLateDays(selectedInvoice.wedding_date)
+      ? calcLateDays(selectedInvoice.wedding_date, selectedInvoice.payment_due_date)
       : 0;
     const est_penalty =
       late_days > 0 ? Math.round(still_owed * penaltyRate * late_days) : 0;
@@ -174,7 +183,7 @@ export default function Invoices() {
         });
         fetchInvoices();
       } catch (err) {
-        alert(err.response?.data?.message || "Có lỗi xảy ra khi hoàn tác!");
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi hoàn tác!");
       }
     }
   };
@@ -185,7 +194,7 @@ export default function Invoices() {
         await axios.delete(`/api/invoices/${id}`);
         fetchInvoices();
       } catch (err) {
-        alert(err.response?.data?.message || "Có lỗi xảy ra khi xóa hóa đơn!");
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa hóa đơn!");
       }
     }
   };
@@ -214,6 +223,126 @@ export default function Invoices() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  // ── PDF Export ────────────────────────────────────────────────────────────
+  const exportPdf = async (invoice) => {
+    try {
+    const w = weddings.find((x) => String(x.id) === String(invoice.wedding_id));
+    const paid = invoice.paid_amount || 0;
+    const stillOwed = invoice.remaining_amount - paid;
+    const doc = new jsPDF("portrait", "mm", "a4");
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(31, 78, 121);
+    doc.text("HÓA ĐƠN TIỆC CƯỚI", pageW / 2, 25, { align: "center" });
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Wedding Management System", pageW / 2, 32, { align: "center" });
+    doc.line(20, 37, pageW - 20, 37);
+
+    // Info
+    doc.setFontSize(11);
+    doc.setTextColor(60);
+    doc.setFont("helvetica", "normal");
+    let y = 48;
+    const row = (label, value) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label + ":", 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, 65, y);
+      y += 7;
+    };
+    row("Mã hóa đơn", `HD${String(invoice.display_num).padStart(3, "0")}`);
+    row("Mã tiệc", w ? `TC${String(w.display_num).padStart(3, "0")}` : "???");
+    row("Tên chú rể", invoice.groom_name);
+    row("Tên cô dâu", invoice.bride_name);
+    row("Ngày tổ chức", invoice.wedding_date ? (() => { const [y2, m, d] = invoice.wedding_date.slice(0, 10).split("-"); return `${d}/${m}/${y2}`; })() : "-");
+    row("Hạn thanh toán", invoice.payment_due_date ? (() => { const [y2, m, d] = invoice.payment_due_date.slice(0, 10).split("-"); return `${d}/${m}/${y2}`; })() : "-");
+    row("Sảnh", invoice.hall_name);
+    row("Số lượng bàn", String(invoice.table_count));
+
+    // Items table
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(31, 78, 121);
+    doc.text("CHI TIẾT HÓA ĐƠN", 20, y);
+    y += 8;
+
+    const bodyRows = [];
+    if (w && w.foods) {
+      w.foods.forEach((f) => {
+        bodyRows.push([f.name, "Món ăn", "1", `${(f.booked_price || f.price).toLocaleString("vi-VN")} đ`, `${((f.booked_price || f.price)).toLocaleString("vi-VN")} đ`]);
+      });
+    }
+    if (w && w.services) {
+      w.services.forEach((s) => {
+        const total = (s.booked_price || s.price) * (s.quantity || 1);
+        bodyRows.push([s.name, "Dịch vụ", `${s.quantity}`, `${(s.booked_price || s.price).toLocaleString("vi-VN")} đ`, `${total.toLocaleString("vi-VN")} đ`]);
+      });
+    }
+
+    doc.autoTable({
+      startY: y,
+      head: [["Tên", "Loại", "SL", "Đơn giá", "Thành tiền"]],
+      body: bodyRows,
+      theme: "grid",
+      headStyles: { fillColor: [31, 78, 121], textColor: 255, fontStyle: "bold", fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 20 },
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+
+    // Totals
+    const totalsY = y;
+    doc.setFontSize(10);
+    doc.setTextColor(60);
+    doc.setFont("helvetica", "normal");
+
+    const totalRow = (label, value, bold = false) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.text(label, pageW - 100, y);
+      doc.text(value, pageW - 20, y, { align: "right" });
+      y += 7;
+    };
+
+    totalRow("Tổng tiền hóa đơn:", `${invoice.total_amount.toLocaleString("vi-VN")} đ`, true);
+    totalRow("Tiền đặt cọc:", `${invoice.deposit.toLocaleString("vi-VN")} đ`);
+    totalRow("Số tiền còn nợ:", `${invoice.remaining_amount.toLocaleString("vi-VN")} đ`);
+    totalRow("Đã thanh toán:", `${paid.toLocaleString("vi-VN")} đ`);
+    if (invoice.penalty_amount > 0) {
+      totalRow("Tiền phạt trễ hạn:", `${invoice.penalty_amount.toLocaleString("vi-VN")} đ`);
+    }
+    doc.setDrawColor(31, 78, 121);
+    doc.line(pageW - 100, y, pageW - 20, y);
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(31, 78, 121);
+    const grandTotal = stillOwed + invoice.penalty_amount;
+    totalRow("TỔNG CỘNG CÒN THANH TOÁN:", `${grandTotal.toLocaleString("vi-VN")} đ`);
+
+    // Footer signature
+    y = Math.max(y + 15, 250);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.setFont("helvetica", "normal");
+    const today = new Date();
+    const dateStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    doc.text(`Ngày xuất: ${dateStr}`, 20, y);
+    doc.text("Người lập hóa đơn", pageW - 60, y);
+    doc.text("(Ký, ghi rõ họ tên)", pageW - 60, y + 5, { align: "center" });
+
+    doc.save(`HoaDon_HD${String(invoice.display_num).padStart(3, "0")}_${dateStr.replace(/\//g, "")}.pdf`);
+    } catch (err) {
+      toast.error("Lỗi xuất PDF: " + (err.message || "Không thể tạo file PDF!"));
+    }
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -264,6 +393,16 @@ export default function Invoices() {
             <option value="partial">Thanh toán một phần</option>
           </select>
           <button
+            onClick={() => {
+              setPdfSelectedId("");
+              setPdfError("");
+              setIsPdfModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
+          >
+            <FileText size={16} /> Xuất Hóa Đơn
+          </button>
+          <button
             onClick={openNewModal}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
           >
@@ -302,7 +441,7 @@ export default function Invoices() {
             {currentInvoices.map((invoice) => {
               const paid = invoice.paid_amount || 0;
               const stillOwed = invoice.remaining_amount - paid;
-              const estLateDays = invoice.apply_penalty ? calcLateDays(invoice.wedding_date) : 0;
+              const estLateDays = invoice.apply_penalty ? calcLateDays(invoice.wedding_date, invoice.payment_due_date) : 0;
               const estPenalty = estLateDays > 0 ? Math.round(stillOwed * penaltyRate * estLateDays) : 0;
               const displayLateDays = invoice.late_days > 0 ? invoice.late_days : estLateDays;
               const displayPenalty = invoice.penalty_amount > 0 ? invoice.penalty_amount : estPenalty;
@@ -715,6 +854,85 @@ export default function Invoices() {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PDF EXPORT MODAL ───────────────────────────────────────────────── */}
+      {isPdfModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-800">
+                Xuất Hóa Đơn PDF
+              </h2>
+              <button
+                onClick={() => setIsPdfModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!pdfSelectedId) {
+                  setPdfError("Vui lòng chọn hóa đơn!");
+                  return;
+                }
+                const inv = invoices.find((x) => x.id === pdfSelectedId);
+                if (inv) {
+                  exportPdf(inv);
+                  setIsPdfModalOpen(false);
+                }
+              }}
+              className="p-6 space-y-5"
+            >
+              {pdfError && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+                  {pdfError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Chọn hóa đơn cần xuất
+                </label>
+                <select
+                  required
+                  value={pdfSelectedId}
+                  onChange={(e) => {
+                    setPdfSelectedId(e.target.value);
+                    setPdfError("");
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                >
+                  <option value="">-- Chọn hóa đơn --</option>
+                  {invoices.map((inv) => {
+                    const w = weddings.find((x) => String(x.id) === String(inv.wedding_id));
+                    return (
+                      <option key={inv.id} value={inv.id}>
+                        HD{String(inv.display_num).padStart(3, "0")} - {inv.groom_name} & {inv.bride_name}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="flex justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPdfModalOpen(false)}
+                  className="px-6 py-2 text-slate-600 font-medium bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors text-sm"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors text-sm"
+                >
+                  <FileText size={16} className="inline mr-1" /> Xuất PDF
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

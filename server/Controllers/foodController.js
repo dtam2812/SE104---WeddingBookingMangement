@@ -1,4 +1,6 @@
-import { Food } from "../Models/index.js";
+import { Food, Wedding } from "../Models/index.js";
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getAll = async (req, res) => {
   try {
@@ -25,6 +27,15 @@ export const getById = async (req, res) => {
 
 export const create = async (req, res) => {
   try {
+    const { name } = req.body;
+    if (name) {
+      const existing = await Food.findOne({ name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" } });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Tên món ăn đã tồn tại!" });
+      }
+    }
     const doc = await Food.create(req.body);
     res.status(201).json({ success: true, data: doc });
   } catch (err) {
@@ -37,6 +48,18 @@ export const create = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
+    const { name } = req.body;
+    if (name) {
+      const existing = await Food.findOne({
+        name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" },
+        _id: { $ne: req.params.id },
+      });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Tên món ăn đã tồn tại!" });
+      }
+    }
     const doc = await Food.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -57,6 +80,18 @@ export const update = async (req, res) => {
 
 export const remove = async (req, res) => {
   try {
+    const wedding = await Wedding.findOne({ "foods.food_id": req.params.id });
+    if (wedding) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Không thể xóa món ăn này vì đã có trong tiệc cưới \"" +
+          wedding.groom_name +
+          " & " +
+          wedding.bride_name +
+          '"!',
+      });
+    }
     const doc = await Food.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res

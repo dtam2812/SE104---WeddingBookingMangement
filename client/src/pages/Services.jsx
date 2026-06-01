@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
+import { toast } from "react-toastify";
 import axios from "../common";
 
 const authHeader = () => ({
@@ -18,6 +19,7 @@ export default function Services() {
     price: "",
     description: "",
   });
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchServices();
@@ -30,16 +32,19 @@ export default function Services() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     try {
       if (editingId) {
         await axios.put(`/api/services/${editingId}`, formData, authHeader());
+        toast.success("Cập nhật dịch vụ thành công!");
       } else {
         await axios.post("/api/services", formData, authHeader());
+        toast.success("Thêm dịch vụ mới thành công!");
       }
       setIsModalOpen(false);
       fetchServices();
     } catch (err) {
-      alert(err.response?.data?.message || "Có lỗi xảy ra!");
+      setError(err.response?.data?.message || "Có lỗi xảy ra!");
     }
   };
 
@@ -55,8 +60,13 @@ export default function Services() {
 
   const handleDelete = async (id) => {
     if (confirm("Bạn có chắc chắn muốn xóa dịch vụ này?")) {
-      await axios.delete(`/api/services/${id}`, authHeader());
-      fetchServices();
+      try {
+        await axios.delete(`/api/services/${id}`, authHeader());
+        toast.success("Đã xóa dịch vụ thành công!");
+        fetchServices();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa dịch vụ!");
+      }
     }
   };
 
@@ -211,6 +221,11 @@ export default function Services() {
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6 pt-0 space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Tên dịch vụ:
@@ -230,13 +245,14 @@ export default function Services() {
                   Đơn giá:
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
-                  }
+                  value={formData.price ? Number(formData.price).toLocaleString("vi-VN") : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    setFormData({ ...formData, price: raw });
+                  }}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
               </div>

@@ -1,4 +1,6 @@
-import { HallType } from "../Models/index.js";
+import { HallType, Hall } from "../Models/index.js";
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getAll = async (req, res) => {
   try {
@@ -25,9 +27,23 @@ export const getById = async (req, res) => {
 
 export const create = async (req, res) => {
   try {
+    const { name } = req.body;
+    if (name) {
+      const existing = await HallType.findOne({ name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" } });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Tên loại sảnh đã tồn tại!" });
+      }
+    }
     const doc = await HallType.create(req.body);
     res.status(201).json({ success: true, data: doc });
   } catch (err) {
+    if (err.code === 11000) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Tên loại sảnh đã tồn tại!" });
+    }
     if (err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -37,6 +53,18 @@ export const create = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
+    const { name } = req.body;
+    if (name) {
+      const existing = await HallType.findOne({
+        name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" },
+        _id: { $ne: req.params.id },
+      });
+      if (existing) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Tên loại sảnh đã tồn tại!" });
+      }
+    }
     const doc = await HallType.findByIdAndUpdate(req.params.id, req.body, {
       returnDocument: "after",
       runValidators: true,
@@ -48,6 +76,11 @@ export const update = async (req, res) => {
     }
     res.json({ success: true, data: doc });
   } catch (err) {
+    if (err.code === 11000) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Tên loại sảnh đã tồn tại!" });
+    }
     if (err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -57,6 +90,12 @@ export const update = async (req, res) => {
 
 export const remove = async (req, res) => {
   try {
+    const hallUsing = await Hall.findOne({ type_id: req.params.id });
+    if (hallUsing) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Không thể xóa loại sảnh này vì đang được sử dụng bởi sảnh \"" + hallUsing.name + "\"!" });
+    }
     const doc = await HallType.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res

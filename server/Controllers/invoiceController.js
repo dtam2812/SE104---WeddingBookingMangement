@@ -28,10 +28,12 @@ export const getById = async (req, res) => {
 
 export const getRevenueReport = async (req, res) => {
   try {
-    const { month, year } = req.query;
+    const { month, year, type } = req.query;
     const filter = {};
 
-    if (month && year) {
+    if (type === "all") {
+      // No date filter - get all
+    } else if (month && year) {
       const start = new Date(year, month - 1, 1);
       const end = new Date(year, month, 1);
       filter.wedding_date = { $gte: start, $lt: end };
@@ -50,8 +52,19 @@ export const getRevenueReport = async (req, res) => {
       (sum, inv) => sum + inv.penalty_amount,
       0,
     );
+    const total_weddings = invoices.length;
+    const total_completed = invoices.filter((inv) => inv.status === "paid").length;
+    const avg_revenue = total_weddings > 0 ? Math.round(total_revenue / total_weddings) : 0;
 
-    res.json({ success: true, data: invoices, total_revenue, total_penalty });
+    res.json({
+      success: true,
+      data: invoices,
+      total_revenue,
+      total_penalty,
+      total_weddings,
+      total_completed,
+      avg_revenue,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -59,7 +72,7 @@ export const getRevenueReport = async (req, res) => {
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────
 export const create = async (req, res) => {
-  const { wedding_id, table_count, apply_penalty } = req.body;
+  const { wedding_id, table_count, apply_penalty, payment_due_date } = req.body;
 
   if (!wedding_id) {
     return res
@@ -107,7 +120,8 @@ export const create = async (req, res) => {
       paid_amount: 0,
       late_days: 0,
       penalty_amount: 0,
-      // ✅ NEW: store penalty preference
+      payment_due_date:
+        payment_due_date || wedding.payment_due_date || wedding.wedding_date,
       apply_penalty: apply_penalty === true || apply_penalty === "true",
       status: "unpaid",
     };
@@ -165,9 +179,11 @@ export const update = async (req, res) => {
         updates.payment_date = new Date();
 
         if (invoice.apply_penalty) {
-          // Penalty starts 1 day after wedding date
-          const weddingDate = new Date(invoice.wedding_date);
-          const penaltyStart = new Date(weddingDate);
+          // Penalty starts 1 day after payment_due_date (or wedding_date)
+          const dueDate = invoice.payment_due_date
+            ? new Date(invoice.payment_due_date)
+            : new Date(invoice.wedding_date);
+          const penaltyStart = new Date(dueDate);
           penaltyStart.setDate(penaltyStart.getDate() + 1);
           penaltyStart.setHours(0, 0, 0, 0);
 

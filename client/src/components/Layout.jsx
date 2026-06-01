@@ -13,6 +13,8 @@ import {
   FileBarChart,
   LogOut,
   Settings,
+  LayoutDashboard,
+  Layers,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -40,6 +42,7 @@ export default function Layout({ user, setUser }) {
     ...(user?.role === "admin"
       ? [
           { path: "/halls", icon: CalendarHeart, label: "Sảnh" },
+          { path: "/hall-types", icon: Layers, label: "Loại Sảnh" },
           { path: "/foods", icon: Utensils, label: "Thực Đơn" },
           { path: "/services", icon: ConciergeBell, label: "Dịch Vụ" },
           { path: "/rules", icon: BookOpenCheck, label: "Quy Định" },

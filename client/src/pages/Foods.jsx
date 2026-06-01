@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
+import { toast } from "react-toastify";
 import axios from "../common";
 
 const authHeader = () => ({
@@ -18,6 +19,7 @@ export default function Foods() {
     price: "",
     notes: "",
   });
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchFoods();
@@ -30,13 +32,20 @@ export default function Foods() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingId) {
-      await axios.put(`/api/foods/${editingId}`, formData, authHeader());
-    } else {
-      await axios.post("/api/foods", formData, authHeader());
+    setError("");
+    try {
+      if (editingId) {
+        await axios.put(`/api/foods/${editingId}`, formData, authHeader());
+        toast.success("Cập nhật món ăn thành công!");
+      } else {
+        await axios.post("/api/foods", formData, authHeader());
+        toast.success("Thêm món ăn mới thành công!");
+      }
+      setIsModalOpen(false);
+      fetchFoods();
+    } catch (err) {
+      setError(err.response?.data?.message || "Có lỗi xảy ra!");
     }
-    setIsModalOpen(false);
-    fetchFoods();
   };
 
   const handleEdit = (food) => {
@@ -51,8 +60,13 @@ export default function Foods() {
 
   const handleDelete = async (id) => {
     if (confirm("Bạn có chắc chắn muốn xóa món ăn này?")) {
-      await axios.delete(`/api/foods/${id}`, authHeader());
-      fetchFoods();
+      try {
+        await axios.delete(`/api/foods/${id}`, authHeader());
+        toast.success("Đã xóa món ăn thành công!");
+        fetchFoods();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa món ăn!");
+      }
     }
   };
 
@@ -212,6 +226,11 @@ export default function Foods() {
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Tên món ăn
@@ -231,13 +250,14 @@ export default function Foods() {
                   Đơn giá
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
-                  }
+                  value={formData.price ? Number(formData.price).toLocaleString("vi-VN") : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    setFormData({ ...formData, price: raw });
+                  }}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
               </div>

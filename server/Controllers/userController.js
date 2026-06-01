@@ -46,14 +46,44 @@ export const create = async (req, res) => {
         .json({ success: false, message: "Vui lòng nhập mật khẩu!" });
     }
 
+    // ── Check unique username ──────────────────────────────────────────────
+    const dupUser = await User.exists({ username: username.trim() });
+    if (dupUser) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Tên tài khoản đã tồn tại!" });
+    }
+
+    // ── Check unique email ─────────────────────────────────────────────────
+    const emailVal = email?.trim();
+    if (emailVal) {
+      const dupEmail = await User.exists({ email: emailVal });
+      if (dupEmail) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Email đã tồn tại!" });
+      }
+    }
+
+    // ── Check unique phone ─────────────────────────────────────────────────
+    const phoneVal = phone?.trim();
+    if (phoneVal) {
+      const dupPhone = await User.exists({ phone: phoneVal });
+      if (dupPhone) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Số điện thoại đã tồn tại!" });
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const doc = await User.create({
       username: username.trim(),
       password: hashedPassword,
       full_name: full_name.trim(),
-      phone: phone?.trim() || "",
-      email: email?.trim() || "",
+      phone: phoneVal || null,
+      email: emailVal || null,
       role: role || "staff",
       status: status || "active",
     });
@@ -61,13 +91,8 @@ export const create = async (req, res) => {
     const result = doc.toJSON();
     delete result.password;
 
-    res.status(201).json({ success: true, data: result });
+    res.status(201).json({ success: true, data: result, _v: 2 });
   } catch (err) {
-    if (err.code === 11000) {
-      return res
-        .status(409)
-        .json({ success: false, message: "Tên đăng nhập đã tồn tại!" });
-    }
     if (err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -82,8 +107,41 @@ export const update = async (req, res) => {
     const updateData = {};
 
     if (full_name && full_name.trim()) updateData.full_name = full_name.trim();
-    if (phone !== undefined) updateData.phone = phone.trim();
-    if (email !== undefined) updateData.email = email.trim();
+
+    // ── Check unique email (exclude self) ──────────────────────────────────
+    const emailVal = email?.trim();
+    if (emailVal) {
+      const dupEmail = await User.exists({
+        email: emailVal,
+        _id: { $ne: req.params.id },
+      });
+      if (dupEmail) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Email đã tồn tại!" });
+      }
+      updateData.email = emailVal;
+    } else if (email !== undefined) {
+      updateData.email = null;
+    }
+
+    // ── Check unique phone (exclude self) ──────────────────────────────────
+    const phoneVal = phone?.trim();
+    if (phoneVal) {
+      const dupPhone = await User.exists({
+        phone: phoneVal,
+        _id: { $ne: req.params.id },
+      });
+      if (dupPhone) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Số điện thoại đã tồn tại!" });
+      }
+      updateData.phone = phoneVal;
+    } else if (phone !== undefined) {
+      updateData.phone = null;
+    }
+
     if (role) updateData.role = role;
     if (status) updateData.status = status;
 
@@ -110,11 +168,6 @@ export const update = async (req, res) => {
 
     res.json({ success: true, data: doc });
   } catch (err) {
-    if (err.code === 11000) {
-      return res
-        .status(409)
-        .json({ success: false, message: "Tên đăng nhập đã tồn tại!" });
-    }
     if (err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
