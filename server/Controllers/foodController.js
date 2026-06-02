@@ -11,7 +11,7 @@ export const getAll = async (req, res) => {
       filter.foodType = type;
     }
 
-    let sort = { createdAt: -1 };
+    let sort = { createdAt: 1 };
     if (sortBy === "price") {
       sort = { price: order === "asc" ? 1 : -1 };
     } else if (sortBy === "name") {

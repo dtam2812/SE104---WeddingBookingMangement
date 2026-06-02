@@ -4,7 +4,7 @@ const SALT_ROUNDS = 10;
 
 export const getAll = async (req, res) => {
   try {
-    const data = await User.find().select("-password").sort({ createdAt: -1 });
+    const data = await User.find().select("-password").sort({ createdAt: 1 });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
