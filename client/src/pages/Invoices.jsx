@@ -235,7 +235,7 @@ export default function Invoices() {
   // ── Filter & Paginate ─────────────────────────────────────────────────────
   const filteredInvoices = invoices.filter((i) => {
     const wedding = weddings.find((w) => String(w.id) === String(i.wedding_id));
-    const idStr = `HD${(i.id || "").toString().padStart(3, "0")}`.toLowerCase();
+    const idStr = `HD${(i.display_num || "").toString().padStart(3, "0")}`.toLowerCase()
     const weddingIdStr = wedding
       ? `TC${String(wedding.display_num).padStart(3, "0")}`.toLowerCase()
       : "";
