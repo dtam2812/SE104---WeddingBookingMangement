@@ -28,7 +28,9 @@ const calcLateDays = (weddingDateStr, paymentDueDateStr) => {
   const penaltyStart = new Date(+base);
   penaltyStart.setUTCDate(penaltyStart.getUTCDate() + 1);
   const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
   const diffMs = today - penaltyStart;
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
 };
@@ -85,13 +87,17 @@ export default function Invoices() {
 
   const fetchInvoices = async () => {
     const res = await axios.get("/api/invoices");
-    const sorted = [...(res.data.data || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const sorted = [...(res.data.data || [])].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+    );
     setInvoices(sorted.map((inv, idx) => ({ ...inv, display_num: idx + 1 })));
   };
 
   const fetchWeddings = async () => {
     const res = await axios.get("/api/weddings");
-    const sorted = [...(res.data.data || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const sorted = [...(res.data.data || [])].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+    );
     setWeddings(sorted.map((w, idx) => ({ ...w, display_num: idx + 1 })));
   };
 
@@ -124,7 +130,9 @@ export default function Invoices() {
       setIsModalOpen(false);
       fetchInvoices();
     } catch (err) {
-      setCreateError(err.response?.data?.message || "Có lỗi xảy ra khi lập hóa đơn!");
+      setCreateError(
+        err.response?.data?.message || "Có lỗi xảy ra khi lập hóa đơn!",
+      );
     }
   };
 
@@ -185,7 +193,9 @@ export default function Invoices() {
       setIsPaymentModalOpen(false);
       fetchInvoices();
     } catch (err) {
-      setPaymentError(err.response?.data?.message || "Có lỗi xảy ra khi thanh toán!");
+      setPaymentError(
+        err.response?.data?.message || "Có lỗi xảy ra khi thanh toán!",
+      );
     }
   };
 
@@ -202,7 +212,9 @@ export default function Invoices() {
         });
         fetchInvoices();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi hoàn tác!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi hoàn tác!",
+        );
       }
     }
   };
@@ -213,7 +225,9 @@ export default function Invoices() {
         await axios.delete(`/api/invoices/${id}`);
         fetchInvoices();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa hóa đơn!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi xóa hóa đơn!",
+        );
       }
     }
   };
@@ -246,14 +260,21 @@ export default function Invoices() {
   // ── PDF Export ────────────────────────────────────────────────────────────
   const exportPdf = async (invoice) => {
     try {
-      const w = weddings.find((x) => String(x.id) === String(invoice.wedding_id));
+      const w = weddings.find(
+        (x) => String(x.id) === String(invoice.wedding_id),
+      );
       const paid = invoice.paid_amount || 0;
       const stillOwed = invoice.remaining_amount - paid;
 
       // Load Roboto font (hỗ trợ tiếng Việt)
-      const fontUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf";
-      const fontBoldUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf";
-      const [fontRes, fontBoldRes] = await Promise.all([fetch(fontUrl), fetch(fontBoldUrl)]);
+      const fontUrl =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf";
+      const fontBoldUrl =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf";
+      const [fontRes, fontBoldRes] = await Promise.all([
+        fetch(fontUrl),
+        fetch(fontBoldUrl),
+      ]);
       const fontBuffer = await fontRes.arrayBuffer();
       const fontBoldBuffer = await fontBoldRes.arrayBuffer();
 
@@ -292,10 +313,21 @@ export default function Invoices() {
       row("Mã tiệc", w ? `TC${String(w.display_num).padStart(3, "0")}` : "???");
       row("Tên chú rể", invoice.groom_name);
       row("Tên cô dâu", invoice.bride_name);
-      row("Ngày tổ chức", invoice.wedding_date ? (() => { const [y2, m, d] = invoice.wedding_date.slice(0, 10).split("-"); return `${d}/${m}/${y2}`; })() : "-");
+      row(
+        "Ngày tổ chức",
+        invoice.wedding_date
+          ? (() => {
+              const [y2, m, d] = invoice.wedding_date.slice(0, 10).split("-");
+              return `${d}/${m}/${y2}`;
+            })()
+          : "-",
+      );
       row("Sảnh", invoice.hall_name);
       row("Số lượng bàn", String(invoice.table_count));
-      row("Trạng thái thanh toán", statusLabel[invoice.status] || invoice.status);
+      row(
+        "Trạng thái thanh toán",
+        statusLabel[invoice.status] || invoice.status,
+      );
 
       // Items table
       y += 5;
@@ -308,13 +340,25 @@ export default function Invoices() {
       const bodyRows = [];
       if (w && w.foods) {
         w.foods.forEach((f) => {
-          bodyRows.push([f.name, "Món ăn", "1", `${(f.booked_price || f.price).toLocaleString("vi-VN")} đ`, `${((f.booked_price || f.price)).toLocaleString("vi-VN")} đ`]);
+          bodyRows.push([
+            f.name,
+            "Món ăn",
+            "1",
+            `${(f.booked_price || f.price).toLocaleString("vi-VN")} đ`,
+            `${(f.booked_price || f.price).toLocaleString("vi-VN")} đ`,
+          ]);
         });
       }
       if (w && w.services) {
         w.services.forEach((s) => {
           const total = (s.booked_price || s.price) * (s.quantity || 1);
-          bodyRows.push([s.name, "Dịch vụ", `${s.quantity}`, `${(s.booked_price || s.price).toLocaleString("vi-VN")} đ`, `${total.toLocaleString("vi-VN")} đ`]);
+          bodyRows.push([
+            s.name,
+            "Dịch vụ",
+            `${s.quantity}`,
+            `${(s.booked_price || s.price).toLocaleString("vi-VN")} đ`,
+            `${total.toLocaleString("vi-VN")} đ`,
+          ]);
         });
       }
 
@@ -324,7 +368,13 @@ export default function Invoices() {
         body: bodyRows,
         theme: "grid",
         styles: { font: "Roboto" },
-        headStyles: { fillColor: [31, 78, 121], textColor: 255, fontStyle: "bold", fontSize: 9, font: "Roboto" },
+        headStyles: {
+          fillColor: [31, 78, 121],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 9,
+          font: "Roboto",
+        },
         bodyStyles: { fontSize: 9, font: "Roboto" },
         alternateRowStyles: { fillColor: [245, 247, 250] },
         margin: { left: 20 },
@@ -345,12 +395,22 @@ export default function Invoices() {
         y += 7;
       };
 
-      totalRow("Tổng tiền hóa đơn:", `${invoice.total_amount.toLocaleString("vi-VN")} đ`, true);
+      totalRow(
+        "Tổng tiền hóa đơn:",
+        `${invoice.total_amount.toLocaleString("vi-VN")} đ`,
+        true,
+      );
       totalRow("Tiền đặt cọc:", `${invoice.deposit.toLocaleString("vi-VN")} đ`);
-      totalRow("Số tiền còn nợ:", `${invoice.remaining_amount.toLocaleString("vi-VN")} đ`);
+      totalRow(
+        "Số tiền còn nợ:",
+        `${invoice.remaining_amount.toLocaleString("vi-VN")} đ`,
+      );
       totalRow("Đã thanh toán:", `${paid.toLocaleString("vi-VN")} đ`);
       if (invoice.penalty_amount > 0) {
-        totalRow("Tiền phạt trễ hạn:", `${invoice.penalty_amount.toLocaleString("vi-VN")} đ`);
+        totalRow(
+          "Tiền phạt trễ hạn:",
+          `${invoice.penalty_amount.toLocaleString("vi-VN")} đ`,
+        );
       }
       doc.setDrawColor(31, 78, 121);
       doc.line(pageW - 100, y, pageW - 20, y);
@@ -359,7 +419,16 @@ export default function Invoices() {
       doc.setFontSize(12);
       doc.setTextColor(31, 78, 121);
       const grandTotal = stillOwed + invoice.penalty_amount;
-      totalRow("TỔNG CỘNG CÒN THANH TOÁN:", `${grandTotal.toLocaleString("vi-VN")} đ`);
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(31, 78, 121);
+      doc.text("TỔNG CỘNG CÒN THANH TOÁN:", pageW - 100, y);
+      y += 6;
+      doc.setFontSize(13);
+      doc.text(`${grandTotal.toLocaleString("vi-VN")} đ`, pageW - 20, y, {
+        align: "right",
+      });
+      y += 7;
 
       // Footer signature
       y = Math.max(y + 15, 250);
@@ -372,9 +441,13 @@ export default function Invoices() {
       doc.text("Người lập hóa đơn", pageW - 60, y);
       doc.text("(Ký, ghi rõ họ tên)", pageW - 60, y + 5, { align: "center" });
 
-      doc.save(`HoaDon_HD${String(invoice.display_num).padStart(3, "0")}_${dateStr.replace(/\//g, "")}.pdf`);
+      doc.save(
+        `HoaDon_HD${String(invoice.display_num).padStart(3, "0")}_${dateStr.replace(/\//g, "")}.pdf`,
+      );
     } catch (err) {
-      toast.error("Lỗi xuất PDF: " + (err.message || "Không thể tạo file PDF!"));
+      toast.error(
+        "Lỗi xuất PDF: " + (err.message || "Không thể tạo file PDF!"),
+      );
     }
   };
 
@@ -459,26 +532,55 @@ export default function Invoices() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">MÃ HĐ</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">MÃ TIỆC</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">CHÚ RỂ / CÔ DÂU</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">NGÀY TIỆC</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">ĐÃ TRẢ</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">CÒN NỢ</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">TRỄ (NGÀY)</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">TIỀN PHẠT</th>
-              <th className="py-4 px-4 font-semibold whitespace-nowrap">TRẠNG THÁI</th>
-              <th className="py-4 px-4 font-semibold text-center whitespace-nowrap">HÀNH ĐỘNG</th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                MÃ HĐ
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                MÃ TIỆC
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                CHÚ RỂ / CÔ DÂU
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                NGÀY TIỆC
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                ĐÃ TRẢ
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                CÒN NỢ
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                TRỄ (NGÀY)
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                TIỀN PHẠT
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                TRẠNG THÁI
+              </th>
+              <th className="py-4 px-4 font-semibold text-center whitespace-nowrap">
+                HÀNH ĐỘNG
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {currentInvoices.map((invoice) => {
               const paid = invoice.paid_amount || 0;
               const stillOwed = invoice.remaining_amount - paid;
-              const estLateDays = invoice.apply_penalty ? calcLateDays(invoice.wedding_date) : 0;
-              const estPenalty = estLateDays > 0 ? Math.round(stillOwed * penaltyRate * estLateDays) : 0;
-              const displayLateDays = invoice.late_days > 0 ? invoice.late_days : estLateDays;
-              const displayPenalty = invoice.penalty_amount > 0 ? invoice.penalty_amount : estPenalty;
+              const estLateDays = invoice.apply_penalty
+                ? calcLateDays(invoice.wedding_date)
+                : 0;
+              const estPenalty =
+                estLateDays > 0
+                  ? Math.round(stillOwed * penaltyRate * estLateDays)
+                  : 0;
+              const displayLateDays =
+                invoice.late_days > 0 ? invoice.late_days : estLateDays;
+              const displayPenalty =
+                invoice.penalty_amount > 0
+                  ? invoice.penalty_amount
+                  : estPenalty;
               return (
                 <tr
                   key={invoice.id}
@@ -489,8 +591,12 @@ export default function Invoices() {
                   </td>
                   <td className="py-4 px-4 whitespace-nowrap text-slate-600">
                     {(() => {
-                      const w = weddings.find((x) => String(x.id) === String(invoice.wedding_id));
-                      return w ? `TC${String(w.display_num).padStart(3, "0")}` : "???";
+                      const w = weddings.find(
+                        (x) => String(x.id) === String(invoice.wedding_id),
+                      );
+                      return w
+                        ? `TC${String(w.display_num).padStart(3, "0")}`
+                        : "???";
                     })()}
                   </td>
                   <td className="py-4 px-4 whitespace-nowrap text-slate-800">
@@ -498,7 +604,12 @@ export default function Invoices() {
                   </td>
                   <td className="py-4 px-4 whitespace-nowrap text-slate-600">
                     {invoice.wedding_date
-                      ? (() => { const [y, m, d] = invoice.wedding_date.slice(0, 10).split("-"); return `${d}/${m}/${y}`; })()
+                      ? (() => {
+                          const [y, m, d] = invoice.wedding_date
+                            .slice(0, 10)
+                            .split("-");
+                          return `${d}/${m}/${y}`;
+                        })()
                       : "-"}
                   </td>
                   <td className="py-4 px-4 whitespace-nowrap font-medium text-emerald-600">
@@ -515,9 +626,7 @@ export default function Invoices() {
                     {displayLateDays > 0 ? displayLateDays : "-"}
                   </td>
                   <td className="py-4 px-4 whitespace-nowrap text-red-500 font-medium">
-                    {displayPenalty > 0
-                      ? fmt(displayPenalty)
-                      : "-"}
+                    {displayPenalty > 0 ? fmt(displayPenalty) : "-"}
                   </td>
                   <td className="py-4 px-4 whitespace-nowrap">
                     <span
@@ -581,10 +690,11 @@ export default function Invoices() {
             <button
               key={i}
               onClick={() => setCurrentPage(i + 1)}
-              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${currentPage === i + 1
+              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
+                currentPage === i + 1
                   ? "bg-slate-800 text-white"
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-                }`}
+              }`}
             >
               {i + 1}
             </button>
@@ -643,11 +753,16 @@ export default function Invoices() {
                   <option value="">-- Chọn tiệc --</option>
                   {weddings
                     .filter((w) => w.status === "hoan_thanh")
-                    .filter((w) => !invoices.find((i) => String(i.wedding_id) === String(w.id)))
+                    .filter(
+                      (w) =>
+                        !invoices.find(
+                          (i) => String(i.wedding_id) === String(w.id),
+                        ),
+                    )
                     .map((w) => (
                       <option key={w.id} value={w.id}>
-                        TC{String(w.display_num).padStart(3, "0")} - {w.groom_name} &{" "}
-                        {w.bride_name}
+                        TC{String(w.display_num).padStart(3, "0")} -{" "}
+                        {w.groom_name} & {w.bride_name}
                       </option>
                     ))}
                 </select>
@@ -692,12 +807,14 @@ export default function Invoices() {
                       apply_penalty: !formData.apply_penalty,
                     })
                   }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${formData.apply_penalty ? "bg-indigo-600" : "bg-slate-300"
-                    }`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                    formData.apply_penalty ? "bg-indigo-600" : "bg-slate-300"
+                  }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ${formData.apply_penalty ? "translate-x-5" : "translate-x-0"
-                      }`}
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ${
+                      formData.apply_penalty ? "translate-x-5" : "translate-x-0"
+                    }`}
                   />
                 </button>
               </div>
@@ -779,7 +896,16 @@ export default function Invoices() {
                       <span>Hóa đơn này áp dụng phạt trễ hạn</span>
                     </div>
                     <Row
-                      label={`Số ngày trễ (từ ${selectedInvoice.wedding_date ? (() => { const [y, m, d] = selectedInvoice.wedding_date.slice(0, 10).split("-"); return `${d}/${m}/${y}`; })() : ""})`}
+                      label={`Số ngày trễ (từ ${
+                        selectedInvoice.wedding_date
+                          ? (() => {
+                              const [y, m, d] = selectedInvoice.wedding_date
+                                .slice(0, 10)
+                                .split("-");
+                              return `${d}/${m}/${y}`;
+                            })()
+                          : ""
+                      })`}
                       value={
                         paymentCalc.late_days > 0
                           ? `${paymentCalc.late_days} ngày`
@@ -818,7 +944,11 @@ export default function Invoices() {
                     type="text"
                     inputMode="numeric"
                     placeholder="Nhập số tiền..."
-                    value={paymentAmount ? Number(paymentAmount).toLocaleString("vi-VN") : ""}
+                    value={
+                      paymentAmount
+                        ? Number(paymentAmount).toLocaleString("vi-VN")
+                        : ""
+                    }
                     onChange={(e) => {
                       const raw = e.target.value.replace(/\D/g, "");
                       setPaymentAmount(raw);
@@ -840,9 +970,7 @@ export default function Invoices() {
                   <button
                     type="button"
                     onClick={() =>
-                      setPaymentAmount(
-                        String(paymentCalc.grand_total),
-                      )
+                      setPaymentAmount(String(paymentCalc.grand_total))
                     }
                     className="mt-1.5 text-xs text-indigo-600 hover:underline"
                   >
@@ -853,12 +981,13 @@ export default function Invoices() {
                 {/* After-payment preview */}
                 {paymentCalc.paying_now > 0 && (
                   <div
-                    className={`rounded-lg px-4 py-3 text-sm font-medium ${paymentCalc.paying_now > paymentCalc.grand_total
+                    className={`rounded-lg px-4 py-3 text-sm font-medium ${
+                      paymentCalc.paying_now > paymentCalc.grand_total
                         ? "bg-red-50 text-red-600 border border-red-200"
                         : paymentCalc.after_payment <= 0
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-amber-50 text-amber-700 border border-amber-200"
-                      }`}
+                    }`}
                   >
                     {paymentCalc.paying_now > paymentCalc.grand_total
                       ? `⚠ Số tiền thanh toán (${fmt(paymentCalc.paying_now)}) vượt quá tổng nợ (${fmt(paymentCalc.grand_total)})!`
@@ -939,10 +1068,13 @@ export default function Invoices() {
                 >
                   <option value="">-- Chọn hóa đơn --</option>
                   {invoices.map((inv) => {
-                    const w = weddings.find((x) => String(x.id) === String(inv.wedding_id));
+                    const w = weddings.find(
+                      (x) => String(x.id) === String(inv.wedding_id),
+                    );
                     return (
                       <option key={inv.id} value={inv.id}>
-                        HD{String(inv.display_num).padStart(3, "0")} - {inv.groom_name} & {inv.bride_name}
+                        HD{String(inv.display_num).padStart(3, "0")} -{" "}
+                        {inv.groom_name} & {inv.bride_name}
                       </option>
                     );
                   })}

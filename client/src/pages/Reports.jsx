@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { Download, TrendingUp, Calendar, CheckCircle, DollarSign } from "lucide-react";
+import {
+  Download,
+  TrendingUp,
+  Calendar,
+  CheckCircle,
+  DollarSign,
+} from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import axios from "../common";
@@ -13,8 +19,18 @@ const fmtDate = (dateStr) => {
 };
 
 const MONTHS = [
-  "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-  "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
+  "Tháng 1",
+  "Tháng 2",
+  "Tháng 3",
+  "Tháng 4",
+  "Tháng 5",
+  "Tháng 6",
+  "Tháng 7",
+  "Tháng 8",
+  "Tháng 9",
+  "Tháng 10",
+  "Tháng 11",
+  "Tháng 12",
 ];
 
 export default function Reports() {
@@ -62,7 +78,9 @@ export default function Reports() {
       setTotalCompleted(res.data.total_completed || 0);
       setAvgRevenue(res.data.avg_revenue || 0);
     } catch (err) {
-      setReportError(err.response?.data?.message || "Không thể tải dữ liệu báo cáo!");
+      setReportError(
+        err.response?.data?.message || "Không thể tải dữ liệu báo cáo!",
+      );
       setReportData([]);
       setTotalRevenue(0);
       setTotalWeddings(0);
@@ -85,7 +103,9 @@ export default function Reports() {
     try {
       const res = await axios.get("/api/rules");
       const rules = res.data.data || [];
-      const rule = rules.find((r) => r.code === "TIEN_PHAT" || r.code === "PENALTY_RATE");
+      const rule = rules.find(
+        (r) => r.code === "TIEN_PHAT" || r.code === "PENALTY_RATE",
+      );
       if (rule) {
         const parsed = parseFloat(rule.value);
         if (!isNaN(parsed)) {
@@ -98,7 +118,9 @@ export default function Reports() {
           }
         }
       }
-    } catch { /* keep fallback */ }
+    } catch {
+      /* keep fallback */
+    }
   };
 
   const weddingMap = weddings.reduce((map, w) => {
@@ -109,13 +131,15 @@ export default function Reports() {
   const getExportFileName = () => {
     const now = new Date();
     const dateStr = `${now.getDate()}${now.getMonth() + 1}${now.getFullYear()}`;
-    if (reportType === "month") return `BaoCao_Thang${month}_${year}_${dateStr}.xlsx`;
+    if (reportType === "month")
+      return `BaoCao_Thang${month}_${year}_${dateStr}.xlsx`;
     if (reportType === "year") return `BaoCao_Nam${year}_${dateStr}.xlsx`;
     return `BaoCao_ToanThoiGian_${dateStr}.xlsx`;
   };
 
   const getReportTitle = () => {
-    if (reportType === "month") return `BÁO CÁO DOANH THU THÁNG ${month}/${year}`;
+    if (reportType === "month")
+      return `BÁO CÁO DOANH THU THÁNG ${month}/${year}`;
     if (reportType === "year") return `BÁO CÁO DOANH THU NĂM ${year}`;
     return "BÁO CÁO DOANH THU TOÀN THỜI GIAN";
   };
@@ -146,17 +170,38 @@ export default function Reports() {
     sheet1.mergeCells("A1:F1");
     const titleCell = sheet1.getCell("A1");
     titleCell.value = getReportTitle();
-    titleCell.font = { name: "Calibri", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
-    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E79" } };
+    titleCell.font = {
+      name: "Calibri",
+      size: 18,
+      bold: true,
+      color: { argb: "FFFFFFFF" },
+    };
+    titleCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1F4E79" },
+    };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     sheet1.getRow(1).height = 45;
 
     // Summary cards
     const cards = [
-      { label: "Tổng doanh thu", value: `${totalRevenue.toLocaleString("vi-VN")} đ`, color: "FF1F4E79" },
+      {
+        label: "Tổng doanh thu",
+        value: `${totalRevenue.toLocaleString("vi-VN")} đ`,
+        color: "FF1F4E79",
+      },
       { label: "Tổng số tiệc", value: `${totalWeddings}`, color: "FF2E7D32" },
-      { label: "Số tiệc hoàn thành", value: `${totalCompleted}`, color: "FF00796B" },
-      { label: "Doanh thu TB/tiệc", value: `${avgRevenue.toLocaleString("vi-VN")} đ`, color: "FFE65100" },
+      {
+        label: "Số tiệc hoàn thành",
+        value: `${totalCompleted}`,
+        color: "FF00796B",
+      },
+      {
+        label: "Doanh thu TB/tiệc",
+        value: `${avgRevenue.toLocaleString("vi-VN")} đ`,
+        color: "FFE65100",
+      },
     ];
 
     cards.forEach((card, i) => {
@@ -164,21 +209,45 @@ export default function Reports() {
       sheet1.mergeCells(3, col, 3, col + 1);
       const labelCell = sheet1.getCell(3, col);
       labelCell.value = card.label;
-      labelCell.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FFFFFFFF" } };
-      labelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: card.color } };
+      labelCell.font = {
+        name: "Calibri",
+        size: 12,
+        bold: true,
+        color: { argb: "FFFFFFFF" },
+      };
+      labelCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: card.color },
+      };
       labelCell.alignment = { horizontal: "center", vertical: "middle" };
       labelCell.border = {
-        top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" },
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
       };
 
       sheet1.mergeCells(4, col, 4, col + 1);
       const valueCell = sheet1.getCell(4, col);
       valueCell.value = card.value;
-      valueCell.font = { name: "Calibri", size: 14, bold: true, color: { argb: "FF333333" } };
+      valueCell.font = {
+        name: "Calibri",
+        size: 14,
+        bold: true,
+        color: { argb: "FF333333" },
+      };
       valueCell.alignment = { horizontal: "center", vertical: "middle" };
-      valueCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } };
+      valueCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF5F5F5" },
+      };
       valueCell.border = {
-        top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" },
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
       };
     });
 
@@ -213,25 +282,37 @@ export default function Reports() {
     headerRow.height = 30;
     columns.forEach((col, i) => {
       const cell = headerRow.getCell(i + 1);
-      cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E79" } };
+      cell.font = {
+        name: "Calibri",
+        size: 11,
+        bold: true,
+        color: { argb: "FFFFFFFF" },
+      };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1F4E79" },
+      };
       cell.alignment = { horizontal: "center", vertical: "middle" };
       cell.border = {
-        top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" },
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
       };
     });
 
     // Data rows
     reportData.forEach((r, idx) => {
       const w = weddingMap[String(r.wedding_id)];
-      const statusLabels = { 
-        unpaid: "Chưa thanh toán", 
-        paid: "Đã thanh toán", 
+      const statusLabels = {
+        unpaid: "Chưa thanh toán",
+        paid: "Đã thanh toán",
         partial: "Thanh toán một phần",
         cancelled_forfeit: "Hủy sát ngày",
-        uninvoiced_deposit: "Chưa lập HĐ"
+        uninvoiced_deposit: "Chưa lập HĐ",
       };
-      
+
       let noteValue = "";
       if (r.status === "cancelled_forfeit") {
         noteValue = "Hủy sát ngày - Không hoàn cọc";
@@ -241,7 +322,11 @@ export default function Reports() {
 
       const row = sheet2.addRow({
         stt: idx + 1,
-        ma_hd: r.is_virtual ? (r.status === "cancelled_forfeit" ? "Hủy/Cọc" : "Chưa lập HĐ") : `HD${String(r.display_num).padStart(3, "0")}`,
+        ma_hd: r.is_virtual
+          ? r.status === "cancelled_forfeit"
+            ? "Hủy/Cọc"
+            : "Chưa lập HĐ"
+          : `HD${String(r.display_num).padStart(3, "0")}`,
         ma_tc: w ? `TC${String(w.display_num).padStart(3, "0")}` : "???",
         bride: r.bride_name,
         groom: r.groom_name,
@@ -256,12 +341,22 @@ export default function Reports() {
       // Zebra striping
       row.eachCell((cell, colNum) => {
         if (idx % 2 === 1) {
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F7FA" } };
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFF5F7FA" },
+          };
         }
         cell.font = { name: "Calibri", size: 11 };
-        cell.alignment = colNum <= 2 || colNum === 8 ? { horizontal: "center", vertical: "middle" } : { vertical: "middle" };
+        cell.alignment =
+          colNum <= 2 || colNum === 8
+            ? { horizontal: "center", vertical: "middle" }
+            : { vertical: "middle" };
         cell.border = {
-          top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" },
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
         };
       });
 
@@ -272,7 +367,10 @@ export default function Reports() {
     });
 
     // Auto filter
-    sheet2.autoFilter = { from: { row: 1, column: 1 }, to: { row: reportData.length + 1, column: columns.length } };
+    sheet2.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: reportData.length + 1, column: columns.length },
+    };
     // Freeze header
     sheet2.views = [{ state: "frozen", ySplit: 1 }];
 
@@ -285,18 +383,28 @@ export default function Reports() {
     const grandTotalCell = totalRow.getCell(9);
     grandTotalCell.value = totalRevenue;
     grandTotalCell.numFmt = '#,##0 "đ"';
-    grandTotalCell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF1F4E79" } };
+    grandTotalCell.font = {
+      name: "Calibri",
+      size: 11,
+      bold: true,
+      color: { argb: "FF1F4E79" },
+    };
     grandTotalCell.alignment = { horizontal: "right", vertical: "middle" };
 
     totalRow.eachCell((cell) => {
       cell.border = {
-        top: { style: "medium" }, left: { style: "thin" }, bottom: { style: "double" }, right: { style: "thin" },
+        top: { style: "medium" },
+        left: { style: "thin" },
+        bottom: { style: "double" },
+        right: { style: "thin" },
       };
     });
 
     // Generate and download
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
     saveAs(blob, getExportFileName());
   };
 
@@ -328,7 +436,9 @@ export default function Reports() {
                 className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>Tháng {m}</option>
+                  <option key={m} value={m}>
+                    Tháng {m}
+                  </option>
                 ))}
               </select>
               <select
@@ -336,8 +446,13 @@ export default function Reports() {
                 onChange={(e) => setYear(parseInt(e.target.value))}
                 className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
               >
-                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                  <option key={y} value={y}>{y}</option>
+                {Array.from(
+                  { length: 10 },
+                  (_, i) => new Date().getFullYear() - i,
+                ).map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
                 ))}
               </select>
             </>
@@ -349,8 +464,13 @@ export default function Reports() {
               onChange={(e) => setYear(parseInt(e.target.value))}
               className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
             >
-              {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                <option key={y} value={y}>{y}</option>
+              {Array.from(
+                { length: 10 },
+                (_, i) => new Date().getFullYear() - i,
+              ).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
               ))}
             </select>
           )}
@@ -368,31 +488,47 @@ export default function Reports() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-blue-600">Tổng doanh thu</span>
+            <span className="text-sm font-medium text-blue-600">
+              Tổng doanh thu
+            </span>
             <DollarSign size={20} className="text-blue-500" />
           </div>
-          <div className="text-2xl font-bold text-blue-900">{totalRevenue.toLocaleString("vi-VN")} đ</div>
+          <div className="text-2xl font-bold text-blue-900">
+            {totalRevenue.toLocaleString("vi-VN")} đ
+          </div>
         </div>
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-5 rounded-xl border border-emerald-200">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-emerald-600">Tổng số tiệc</span>
+            <span className="text-sm font-medium text-emerald-600">
+              Tổng số tiệc
+            </span>
             <Calendar size={20} className="text-emerald-500" />
           </div>
-          <div className="text-2xl font-bold text-emerald-900">{totalWeddings}</div>
+          <div className="text-2xl font-bold text-emerald-900">
+            {totalWeddings}
+          </div>
         </div>
         <div className="bg-gradient-to-br from-teal-50 to-teal-100 p-5 rounded-xl border border-teal-200">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-teal-600">Số tiệc hoàn thành</span>
+            <span className="text-sm font-medium text-teal-600">
+              Số tiệc hoàn thành
+            </span>
             <CheckCircle size={20} className="text-teal-500" />
           </div>
-          <div className="text-2xl font-bold text-teal-900">{totalCompleted}</div>
+          <div className="text-2xl font-bold text-teal-900">
+            {totalCompleted}
+          </div>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-5 rounded-xl border border-amber-200">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-amber-600">Doanh thu TB/tiệc</span>
+            <span className="text-sm font-medium text-amber-600">
+              Doanh thu TB/tiệc
+            </span>
             <TrendingUp size={20} className="text-amber-500" />
           </div>
-          <div className="text-2xl font-bold text-amber-900">{avgRevenue.toLocaleString("vi-VN")} đ</div>
+          <div className="text-2xl font-bold text-amber-900">
+            {avgRevenue.toLocaleString("vi-VN")} đ
+          </div>
         </div>
       </div>
 
@@ -402,30 +538,61 @@ export default function Reports() {
           <h3 className="text-base font-semibold text-slate-800 mb-4">
             Biểu đồ doanh thu theo tháng
           </h3>
-          <div className="flex items-end gap-2 h-48">
-            {monthlyRevenue.map((rev, i) => {
-              const height = Math.max((rev / maxRevenue) * 100, rev > 0 ? 5 : 0);
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs text-slate-500 font-medium">
-                    {rev > 0 ? Math.round(rev / 1000000) + "tr" : ""}
-                  </span>
+          <div className="relative" style={{ height: "200px" }}>
+            {/* Y-axis grid lines */}
+            {[0, 25, 50, 75, 100].map((pct) => (
+              <div
+                key={pct}
+                className="absolute w-full border-t border-slate-200"
+                style={{ bottom: `${pct}%` }}
+              />
+            ))}
+
+            {/* Bars */}
+            <div className="absolute inset-0 flex items-end gap-1 px-1">
+              {monthlyRevenue.map((rev, i) => {
+                const heightPct =
+                  rev > 0 ? Math.max((rev / maxRevenue) * 95, 4) : 0;
+                return (
                   <div
-                    className="w-full rounded-t"
-                    style={{
-                      height: `${height}%`,
-                      backgroundColor: rev > 0 ? "#4f46e5" : "#e2e8f0",
-                      minHeight: rev > 0 ? "4px" : "2px",
-                      transition: "height 0.3s",
-                    }}
-                  />
-                  <span className="text-xs text-slate-600">{i + 1}</span>
-                </div>
-              );
-            })}
+                    key={i}
+                    className="flex-1 flex flex-col items-center justify-end h-full"
+                  >
+                    {rev > 0 && (
+                      <span className="text-xs text-slate-500 font-medium mb-1 leading-none">
+                        {Math.round(rev / 1_000_000)}tr
+                      </span>
+                    )}
+                    <div
+                      className="w-full rounded-t transition-all duration-500"
+                      style={{
+                        height: `${heightPct}%`,
+                        backgroundColor: rev > 0 ? "#4f46e5" : "#e2e8f0",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* X-axis labels */}
+          <div className="flex gap-1 px-1 mt-1">
+            {MONTHS.map((_, i) => (
+              <div
+                key={i}
+                className="flex-1 text-center text-xs text-slate-500"
+              >
+                {i + 1}
+              </div>
+            ))}
+          </div>
+
           <div className="flex justify-center mt-3 gap-6 text-xs text-slate-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-indigo-600 inline-block" /> Doanh thu</span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-indigo-600 inline-block" />{" "}
+              Doanh thu
+            </span>
           </div>
         </div>
       )}
@@ -459,48 +626,70 @@ export default function Reports() {
           <tbody className="divide-y divide-slate-100">
             {reportData.map((r) => {
               const w = weddingMap[String(r.wedding_id)];
-              const statusLabels = { 
-                unpaid: "Chưa thanh toán", 
-                paid: "Đã thanh toán", 
+              const statusLabels = {
+                unpaid: "Chưa thanh toán",
+                paid: "Đã thanh toán",
                 partial: "Thanh toán một phần",
                 cancelled_forfeit: "Hủy sát ngày",
-                uninvoiced_deposit: "Chưa lập HĐ"
+                uninvoiced_deposit: "Chưa lập HĐ",
               };
               const statusStyles = {
                 paid: "bg-emerald-50 text-emerald-600 border border-emerald-200",
                 partial: "bg-amber-50 text-amber-600 border border-amber-200",
                 unpaid: "bg-slate-50 text-slate-600 border border-slate-200",
-                cancelled_forfeit: "bg-rose-50 text-rose-600 border border-rose-200",
-                uninvoiced_deposit: "bg-sky-50 text-sky-600 border border-sky-200",
+                cancelled_forfeit:
+                  "bg-rose-50 text-rose-600 border border-rose-200",
+                uninvoiced_deposit:
+                  "bg-sky-50 text-sky-600 border border-sky-200",
               };
               return (
-              <tr
-                key={r.id || r._id}
-                className="hover:bg-slate-50 transition-colors text-sm"
-              >
-                <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
-                  {r.is_virtual ? (r.status === "cancelled_forfeit" ? "Hủy/Cọc" : "Chưa lập HĐ") : `HD${String(r.display_num).padStart(3, "0")}`}
-                </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {w ? `TC${String(w.display_num).padStart(3, "0")}` : "???"}
-                </td>
-                <td className="py-4 px-4 text-slate-800 whitespace-nowrap">{r.bride_name}</td>
-                <td className="py-4 px-4 text-slate-800 whitespace-nowrap">{r.groom_name}</td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{fmtDate(r.wedding_date)}</td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{r.hall_name}</td>
-                <td className="py-4 px-4 text-slate-800 text-right whitespace-nowrap">{r.table_count}</td>
-                <td className="py-4 px-4 font-medium text-emerald-600 text-right whitespace-nowrap">
-                  {fmt(r.total_amount + (r.penalty_amount || 0))}
-                </td>
-                <td className="py-4 px-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${statusStyles[r.status] || statusStyles.unpaid}`}>
-                    {statusLabels[r.status] || r.status}
-                  </span>
-                </td>
-                <td className="py-4 px-4 text-slate-600 text-xs whitespace-nowrap">
-                  {r.status === "cancelled_forfeit" ? "Hủy sát ngày - Không hoàn cọc" : r.status === "uninvoiced_deposit" ? "Chưa lập hóa đơn - Chỉ cọc" : ""}
-                </td>
-              </tr>
+                <tr
+                  key={r.id || r._id}
+                  className="hover:bg-slate-50 transition-colors text-sm"
+                >
+                  <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
+                    {r.is_virtual
+                      ? r.status === "cancelled_forfeit"
+                        ? "Hủy/Cọc"
+                        : "Chưa lập HĐ"
+                      : `HD${String(r.display_num).padStart(3, "0")}`}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                    {w ? `TC${String(w.display_num).padStart(3, "0")}` : "???"}
+                  </td>
+                  <td className="py-4 px-4 text-slate-800 whitespace-nowrap">
+                    {r.bride_name}
+                  </td>
+                  <td className="py-4 px-4 text-slate-800 whitespace-nowrap">
+                    {r.groom_name}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                    {fmtDate(r.wedding_date)}
+                  </td>
+                  <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                    {r.hall_name}
+                  </td>
+                  <td className="py-4 px-4 text-slate-800 text-right whitespace-nowrap">
+                    {r.table_count}
+                  </td>
+                  <td className="py-4 px-4 font-medium text-emerald-600 text-right whitespace-nowrap">
+                    {fmt(r.total_amount + (r.penalty_amount || 0))}
+                  </td>
+                  <td className="py-4 px-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${statusStyles[r.status] || statusStyles.unpaid}`}
+                    >
+                      {statusLabels[r.status] || r.status}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4 text-slate-600 text-xs whitespace-nowrap">
+                    {r.status === "cancelled_forfeit"
+                      ? "Hủy sát ngày - Không hoàn cọc"
+                      : r.status === "uninvoiced_deposit"
+                        ? "Chưa lập hóa đơn - Chỉ cọc"
+                        : ""}
+                  </td>
+                </tr>
               );
             })}
             {reportData.length === 0 && (
