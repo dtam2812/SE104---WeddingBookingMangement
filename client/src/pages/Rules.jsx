@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "../common";
 
@@ -37,9 +37,6 @@ export default function Rules() {
       if (editingId) {
         await axios.put(`/api/rules/${editingId}`, formData, authHeader());
         toast.success("Cập nhật quy định thành công!");
-      } else {
-        await axios.post("/api/rules", formData, authHeader());
-        toast.success("Thêm quy định mới thành công!");
       }
       setIsModalOpen(false);
       fetchRules();
@@ -55,24 +52,6 @@ export default function Rules() {
       value: rule.value,
       description: rule.description || "",
     });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (confirm("Bạn có chắc chắn muốn xóa quy định này?")) {
-      try {
-        await axios.delete(`/api/rules/${id}`, authHeader());
-        toast.success("Đã xóa quy định thành công!");
-        fetchRules();
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa quy định!");
-      }
-    }
-  };
-
-  const openNewModal = () => {
-    setEditingId(null);
-    setFormData({ code: "", value: "", description: "" });
     setIsModalOpen(true);
   };
 
@@ -108,12 +87,6 @@ export default function Rules() {
               size={16}
             />
           </div>
-          <button
-            onClick={openNewModal}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
-          >
-            <Plus size={16} /> Thêm Quy Định
-          </button>
         </div>
       </div>
 
@@ -154,18 +127,12 @@ export default function Rules() {
                   {rule.description || "-"}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center">
                     <button
                       onClick={() => handleEdit(rule)}
                       className="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
                     >
                       Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(rule.id)}
-                      className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
-                    >
-                      Xóa
                     </button>
                   </div>
                 </td>
@@ -219,7 +186,7 @@ export default function Rules() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-6 pb-4 border-b border-slate-100">
               <h2 className="text-xl font-bold text-slate-800">
-                {editingId ? "Chỉnh Sửa Quy Định" : "Thêm Quy Định Mới"}
+                Chỉnh Sửa Quy Định
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6 pt-0 space-y-4">
@@ -235,12 +202,9 @@ export default function Rules() {
                 <input
                   type="text"
                   required
-                  disabled={!!editingId}
+                  disabled
                   value={formData.code}
-                  onChange={(e) =>
-                    setFormData({ ...formData, code: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm disabled:bg-slate-50 disabled:text-slate-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg outline-none text-sm text-slate-500"
                 />
               </div>
               <div>
