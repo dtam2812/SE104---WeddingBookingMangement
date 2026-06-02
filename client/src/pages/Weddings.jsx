@@ -230,6 +230,21 @@ export default function Weddings() {
     }
   };
 
+  const removeSelectedFood = (foodId) => {
+    setSelectedFoods(selectedFoods.filter((f) => f.food_id !== foodId));
+  };
+
+  const getFoodType = (foodId) => {
+    const found = foods.find((f) => f.id === foodId || f.id === foodId);
+    return found?.foodType;
+  };
+
+  const selectedFoodsByType = (type) =>
+    selectedFoods.filter((sf) => {
+      const ft = foods.find((f) => f.id === sf.food_id || f.id === sf.id)?.foodType;
+      return ft === type;
+    });
+
   const addServiceItem = (service) => {
     if (!selectedServices.find((s) => s.service_id === service.id || s.id === service.id)) {
       setSelectedServices([
@@ -730,6 +745,20 @@ export default function Weddings() {
                     )}
                   </div>
 
+                  {selectedFoodsByType("Khai vị").length > 0 && (
+                    <div className="mb-4 space-y-1.5">
+                      {selectedFoodsByType("Khai vị").map((f) => (
+                        <div key={f.food_id || f.id} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                          <span className="text-sm font-medium text-slate-800">{f.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 text-sm font-semibold">{(f.booked_price || f.price).toLocaleString("vi-VN")} đ</span>
+                            <button type="button" onClick={() => removeSelectedFood(f.food_id)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Món chính */}
                   <div className="mb-4 relative">
                     <label className="block text-sm font-medium text-slate-600 mb-1">Món chính</label>
@@ -764,6 +793,20 @@ export default function Weddings() {
                       </div>
                     )}
                   </div>
+
+                  {selectedFoodsByType("Món chính").length > 0 && (
+                    <div className="mb-4 space-y-1.5">
+                      {selectedFoodsByType("Món chính").map((f) => (
+                        <div key={f.food_id || f.id} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                          <span className="text-sm font-medium text-slate-800">{f.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 text-sm font-semibold">{(f.booked_price || f.price).toLocaleString("vi-VN")} đ</span>
+                            <button type="button" onClick={() => removeSelectedFood(f.food_id)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Tráng miệng */}
                   <div className="mb-4 relative">
@@ -800,39 +843,20 @@ export default function Weddings() {
                     )}
                   </div>
 
-                  {selectedFoods.length > 0 && (
-                    <div className="bg-slate-50 rounded-xl p-4">
-                      <ul className="space-y-2">
-                        {selectedFoods.map((f, idx) => (
-                          <li
-                            key={idx}
-                            className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm"
-                          >
-                            <span className="font-medium">{f.name}</span>
-                            <div className="flex items-center gap-4">
-                              <span className="text-emerald-600 font-medium">
-                                {(f.booked_price || f.price).toLocaleString(
-                                  "vi-VN",
-                                )}{" "}
-                                đ
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSelectedFoods(
-                                    selectedFoods.filter((_, i) => i !== idx),
-                                  )
-                                }
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                  {selectedFoodsByType("Tráng miệng").length > 0 && (
+                    <div className="mb-4 space-y-1.5">
+                      {selectedFoodsByType("Tráng miệng").map((f) => (
+                        <div key={f.food_id || f.id} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                          <span className="text-sm font-medium text-slate-800">{f.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 text-sm font-semibold">{(f.booked_price || f.price).toLocaleString("vi-VN")} đ</span>
+                            <button type="button" onClick={() => removeSelectedFood(f.food_id)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
+
                 </div>
 
                 {/* Dịch vụ */}
