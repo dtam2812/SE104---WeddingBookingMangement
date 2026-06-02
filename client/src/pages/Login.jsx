@@ -17,7 +17,7 @@ export default function Login({ setUser }) {
     try {
       const res = await axios.post("/api/auth/login", { username, password });
       const { user, token } = res.data;
-      const expiresAt = Date.now() + 15 * 60 * 1000;
+      const expiresAt = Date.now() + 60 * 60 * 1000;
 
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("token", token);
