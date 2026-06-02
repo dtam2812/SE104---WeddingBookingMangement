@@ -318,11 +318,13 @@ export default function Weddings() {
   };
 
   const filteredWeddings = weddings.filter((w) => {
+    const weddingCodeStr = `TC${String(w.display_num).padStart(3, "0")}`.toLowerCase();
     const matchSearch =
       w.groom_name.toLowerCase().includes(search.toLowerCase()) ||
       w.bride_name.toLowerCase().includes(search.toLowerCase()) ||
       w.phone.includes(search) ||
-      (w.hall_name || "").toLowerCase().includes(search.toLowerCase());
+      (w.hall_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      weddingCodeStr.includes(search.toLowerCase());
 
     let matchMonth = true,
       matchYear = true,
