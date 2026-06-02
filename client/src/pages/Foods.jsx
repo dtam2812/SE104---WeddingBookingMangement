@@ -10,6 +10,8 @@ const authHeader = () => ({
 export default function Foods() {
   const [foods, setFoods] = useState([]);
   const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [sortBy, setSortBy] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -17,7 +19,7 @@ export default function Foods() {
   const [formData, setFormData] = useState({
     name: "",
     price: "",
-    notes: "",
+    foodType: "Món chính",
   });
   const [error, setError] = useState("");
 
@@ -53,7 +55,7 @@ export default function Foods() {
     setFormData({
       name: food.name,
       price: food.price.toString(),
-      notes: food.notes || "",
+      foodType: food.foodType || "Món chính",
     });
     setIsModalOpen(true);
   };
@@ -72,16 +74,27 @@ export default function Foods() {
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ name: "", price: "", notes: "" });
+    setFormData({ name: "", price: "", foodType: "Món chính" });
     setIsModalOpen(true);
   };
 
-  const filteredFoods = foods.filter((f) =>
-    f.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredFoods = foods
+    .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((f) => (filterType === "all" ? true : f.foodType === filterType));
 
-  const totalPages = Math.ceil(filteredFoods.length / itemsPerPage);
-  const currentFoods = filteredFoods.slice(
+  let sortedFoods = [...filteredFoods];
+  if (sortBy === "price-asc") {
+    sortedFoods.sort((a, b) => a.price - b.price);
+  } else if (sortBy === "price-desc") {
+    sortedFoods.sort((a, b) => b.price - a.price);
+  } else if (sortBy === "name-asc") {
+    sortedFoods.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sortBy === "name-desc") {
+    sortedFoods.sort((a, b) => b.name.localeCompare(a.name));
+  }
+
+  const totalPages = Math.ceil(sortedFoods.length / itemsPerPage);
+  const currentFoods = sortedFoods.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
@@ -109,6 +122,34 @@ export default function Foods() {
               size={16}
             />
           </div>
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full sm:w-40 px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+          >
+            <option value="all">Tất cả loại</option>
+            <option value="Khai vị">Khai vị</option>
+            <option value="Món chính">Món chính</option>
+            <option value="Tráng miệng">Tráng miệng</option>
+            <option value="Đồ uống">Đồ uống</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full sm:w-44 px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+          >
+            <option value="">Mặc định</option>
+            <option value="price-asc">Giá: Thấp đến Cao</option>
+            <option value="price-desc">Giá: Cao đến Thấp</option>
+            <option value="name-asc">Tên: A-Z</option>
+            <option value="name-desc">Tên: Z-A</option>
+          </select>
           <button
             onClick={openNewModal}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
@@ -134,7 +175,7 @@ export default function Foods() {
               <th className="py-4 px-4 font-semibold">STT</th>
               <th className="py-4 px-4 font-semibold">TÊN MÓN ĂN</th>
               <th className="py-4 px-4 font-semibold">ĐƠN GIÁ</th>
-              <th className="py-4 px-4 font-semibold">GHI CHÚ</th>
+              <th className="py-4 px-4 font-semibold">LOẠI</th>
               <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
@@ -154,7 +195,7 @@ export default function Foods() {
                   {food.price.toLocaleString("vi-VN")} đ
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {food.notes || "-"}
+                  {food.foodType || "-"}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -263,16 +304,20 @@ export default function Foods() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Ghi chú
+                  Loại
                 </label>
-                <textarea
-                  rows={3}
-                  value={formData.notes}
+                <select
+                  value={formData.foodType}
                   onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
+                    setFormData({ ...formData, foodType: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all resize-none text-sm"
-                />
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                >
+                  <option value="Khai vị">Khai vị</option>
+                  <option value="Món chính">Món chính</option>
+                  <option value="Tráng miệng">Tráng miệng</option>
+                  <option value="Đồ uống">Đồ uống</option>
+                </select>
               </div>
               <div className="flex justify-center gap-3 pt-4">
                 <button

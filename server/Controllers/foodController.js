@@ -4,7 +4,23 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getAll = async (req, res) => {
   try {
-    const data = await Food.find().sort({ createdAt: -1 });
+    const { type, sortBy, order } = req.query;
+
+    const filter = {};
+    if (type && type !== "all") {
+      filter.foodType = type;
+    }
+
+    let sort = { createdAt: -1 };
+    if (sortBy === "price") {
+      sort = { price: order === "asc" ? 1 : -1 };
+    } else if (sortBy === "name") {
+      sort = { name: order === "desc" ? -1 : 1 };
+    } else if (sortBy === "createdAt") {
+      sort = { createdAt: order === "asc" ? 1 : -1 };
+    }
+
+    const data = await Food.find(filter).sort(sort);
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
