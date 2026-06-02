@@ -24,6 +24,15 @@ const statusStyle = {
   inactive: "bg-red-50 text-red-500 border border-red-200",
 };
 
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const fmtDate = (dateStr) => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "-";
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+};
+
 export default function Accounts() {
   const [accounts, setAccounts] = useState([]);
   const [search, setSearch] = useState("");
@@ -39,6 +48,7 @@ export default function Accounts() {
     status: "active",
   });
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
@@ -54,6 +64,17 @@ export default function Accounts() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (formData.email && !isValidEmail(formData.email)) {
+      setEmailError("Email không hợp lệ");
+      return;
+    }
+
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error("Số điện thoại phải có đúng 10 chữ số!");
+      return;
+    }
+
     try {
       if (editingId) {
         await axios.put(`/api/users/${editingId}`, formData, authHeader());
@@ -71,6 +92,8 @@ export default function Accounts() {
 
   const handleEdit = (acc) => {
     setEditingId(acc.id);
+    setEmailError("");
+    setError("");
     setFormData({
       username: acc.username,
       password: "",
@@ -90,13 +113,17 @@ export default function Accounts() {
         toast.success("Đã xóa tài khoản thành công!");
         fetchAccounts();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa tài khoản!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi xóa tài khoản!",
+        );
       }
     }
   };
 
   const openNewModal = () => {
     setEditingId(null);
+    setEmailError("");
+    setError("");
     setFormData({
       username: "",
       password: "",
@@ -168,13 +195,29 @@ export default function Accounts() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
-              <th className="py-4 px-4 font-semibold">STT</th>
-              <th className="py-4 px-4 font-semibold">HỌ TÊN</th>
-              <th className="py-4 px-4 font-semibold">SĐT</th>
-              <th className="py-4 px-4 font-semibold">EMAIL</th>
-              <th className="py-4 px-4 font-semibold">VAI TRÒ</th>
-              <th className="py-4 px-4 font-semibold">TRẠNG THÁI</th>
-              <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">STT</th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                HỌ TÊN
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                TÊN TK
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">SĐT</th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                EMAIL
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                VAI TRÒ
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                NGÀY THAM GIA
+              </th>
+              <th className="py-4 px-4 font-semibold whitespace-nowrap">
+                TRẠNG THÁI
+              </th>
+              <th className="py-4 px-4 font-semibold text-center whitespace-nowrap">
+                HÀNH ĐỘNG
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -189,10 +232,20 @@ export default function Accounts() {
                 <td className="py-4 px-4 font-medium text-slate-800 whitespace-nowrap">
                   {acc.full_name}
                 </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{acc.phone || "-"}</td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{acc.email || "-"}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {acc.username}
+                </td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {acc.phone || "-"}
+                </td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {acc.email || "-"}
+                </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {roleLabel[acc.role] || acc.role}
+                </td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {fmtDate(acc.createdAt)}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <span
@@ -221,7 +274,10 @@ export default function Accounts() {
             ))}
             {currentAccounts.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td
+                  colSpan={9}
+                  className="py-8 text-center text-slate-500 whitespace-nowrap"
+                >
                   Không tìm thấy tài khoản nào.
                 </td>
               </tr>
@@ -279,6 +335,8 @@ export default function Accounts() {
                   {error}
                 </div>
               )}
+
+              {/* Họ tên */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Họ tên:
@@ -293,19 +351,38 @@ export default function Accounts() {
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
               </div>
+
+              {/* SĐT */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   SĐT:
                 </label>
-                <input
-                  type="text"
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
-                />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 py-2 bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg text-sm text-slate-600 font-medium whitespace-nowrap">
+                    🇻🇳 +84
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="xxxxxxxxx"
+                    maxLength={9}
+                    value={formData.phone ? formData.phone.slice(1) : ""}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 9);
+                      setFormData({ ...formData, phone: "0" + val });
+                    }}
+                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-r-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  />
+                </div>
+                {formData.phone &&
+                  formData.phone.length > 1 &&
+                  formData.phone.length < 10 && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Vui lòng nhập đủ 9 số ({formData.phone.slice(1).length}/9)
+                    </p>
+                  )}
               </div>
+
+              {/* Tên tài khoản */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Tên tài khoản:
@@ -321,6 +398,8 @@ export default function Accounts() {
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm disabled:bg-slate-50 disabled:text-slate-500"
                 />
               </div>
+
+              {/* Mật khẩu */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Mật khẩu:{" "}
@@ -340,19 +419,36 @@ export default function Accounts() {
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
               </div>
+
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Email:
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData({ ...formData, email: val });
+                    if (val && !isValidEmail(val)) {
+                      setEmailError("Email không hợp lệ");
+                    } else {
+                      setEmailError("");
+                    }
+                  }}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-sm ${
+                    emailError
+                      ? "border-red-400 focus:border-red-400"
+                      : "border-slate-300 focus:border-indigo-400"
+                  }`}
                 />
+                {emailError && (
+                  <p className="text-xs text-red-500 mt-1">{emailError}</p>
+                )}
               </div>
+
+              {/* Vai trò */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Vai trò:
@@ -371,6 +467,8 @@ export default function Accounts() {
                   ))}
                 </select>
               </div>
+
+              {/* Trạng thái */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Trạng thái:
@@ -389,6 +487,7 @@ export default function Accounts() {
                   ))}
                 </select>
               </div>
+
               <div className="flex justify-center gap-3 pt-6">
                 <button
                   type="button"
@@ -399,7 +498,8 @@ export default function Accounts() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors text-sm"
+                  disabled={!!emailError}
+                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
                 >
                   Lưu
                 </button>

@@ -17,7 +17,13 @@ const statusLabel = {
   da_huy: "Đã hủy",
 };
 
-const statusList = ["cho_xac_nhan", "da_xac_nhan", "dang_dien_ra", "hoan_thanh", "da_huy"];
+const statusList = [
+  "cho_xac_nhan",
+  "da_xac_nhan",
+  "dang_dien_ra",
+  "hoan_thanh",
+  "da_huy",
+];
 
 export default function Weddings() {
   const [weddings, setWeddings] = useState([]);
@@ -38,7 +44,7 @@ export default function Weddings() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  const toDateInput = (d) => d ? d.slice(0, 10) : "";
+  const toDateInput = (d) => (d ? d.slice(0, 10) : "");
 
   const getTomorrow = () => {
     const d = new Date();
@@ -80,7 +86,9 @@ export default function Weddings() {
 
   const fetchWeddings = async () => {
     const res = await axios.get("/api/weddings");
-    const sorted = [...(res.data.data || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const sorted = [...(res.data.data || [])].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+    );
     setWeddings(sorted.map((w, idx) => ({ ...w, display_num: idx + 1 })));
   };
 
@@ -121,21 +129,28 @@ export default function Weddings() {
     try {
       // ── Validate deposit <= tổng tiệc ──────────────────────────────────────
       const t = Number(formData.table_count) || 0;
-      const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
+      const foodPerTable = selectedFoods.reduce(
+        (s, f) => s + (f.booked_price || f.price || 0),
+        0,
+      );
       const foodTotal = foodPerTable * t;
       const serviceTotal = selectedServices.reduce(
-        (s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)),
+        (s, sv) => s + (sv.booked_price || sv.price || 0) * (sv.quantity || 1),
         0,
       );
       const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
-      
+
       let pricePerTable = 0;
-      if (formData.hall_min_price !== undefined && formData.hall_min_price !== null && formData.hall_min_price !== "") {
+      if (
+        formData.hall_min_price !== undefined &&
+        formData.hall_min_price !== null &&
+        formData.hall_min_price !== ""
+      ) {
         pricePerTable = Number(formData.hall_min_price);
       } else {
         pricePerTable = selHall?.type_id?.min_price || 0;
       }
-      
+
       const hallTotal = pricePerTable * t;
       const total = foodTotal + serviceTotal + hallTotal;
       const deposit = Number(formData.deposit) || 0;
@@ -160,7 +175,9 @@ export default function Weddings() {
       setIsModalOpen(false);
       fetchWeddings();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Có lỗi xảy ra khi lưu tiệc cưới!");
+      toast.error(
+        err.response?.data?.message || "Có lỗi xảy ra khi lưu tiệc cưới!",
+      );
     }
   };
 
@@ -194,7 +211,9 @@ export default function Weddings() {
         await axios.delete(`/api/weddings/${id}`);
         fetchWeddings();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa tiệc cưới!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi xóa tiệc cưới!",
+        );
       }
     }
   };
@@ -220,18 +239,34 @@ export default function Weddings() {
 
   const addFood = () => {
     const food = foods.find((f) => f.id.toString() === foodInput);
-    if (food && !selectedFoods.find((f) => f.food_id === food.id || f.id === food.id)) {
-      setSelectedFoods([...selectedFoods, { food_id: food.id, name: food.name, price: food.price, quantity: 1 }]);
+    if (
+      food &&
+      !selectedFoods.find((f) => f.food_id === food.id || f.id === food.id)
+    ) {
+      setSelectedFoods([
+        ...selectedFoods,
+        { food_id: food.id, name: food.name, price: food.price, quantity: 1 },
+      ]);
     }
     setFoodInput("");
   };
 
   const addService = () => {
     const service = services.find((s) => s.id.toString() === serviceInput);
-    if (service && !selectedServices.find((s) => s.service_id === service.id || s.id === service.id)) {
+    if (
+      service &&
+      !selectedServices.find(
+        (s) => s.service_id === service.id || s.id === service.id,
+      )
+    ) {
       setSelectedServices([
         ...selectedServices,
-        { service_id: service.id, name: service.name, price: service.price, quantity: serviceQty },
+        {
+          service_id: service.id,
+          name: service.name,
+          price: service.price,
+          quantity: serviceQty,
+        },
       ]);
     }
     setServiceInput("");
@@ -262,7 +297,14 @@ export default function Weddings() {
       matchHall = (w.hall_id || "").toString() === filterHall.toString();
     const matchStatus = filterStatus ? w.status === filterStatus : true;
 
-    return matchSearch && matchMonth && matchYear && matchDate && matchHall && matchStatus;
+    return (
+      matchSearch &&
+      matchMonth &&
+      matchYear &&
+      matchDate &&
+      matchHall &&
+      matchStatus
+    );
   });
 
   const totalPages = Math.ceil(filteredWeddings.length / itemsPerPage);
@@ -283,9 +325,12 @@ export default function Weddings() {
       0,
     );
     const tableTotal = (wedding.table_count || 0) * foodTotal;
-    const selHall = halls.find((h) => h.id.toString() === wedding.hall_id?.toString());
+    const selHall = halls.find(
+      (h) => h.id.toString() === wedding.hall_id?.toString(),
+    );
     // type_id đã được populate → chứa { _id, name, min_price }
-    const hallTotal = (selHall?.type_id?.min_price || 0) * (wedding.table_count || 0);
+    const hallTotal =
+      (selHall?.type_id?.min_price || 0) * (wedding.table_count || 0);
     return serviceTotal + tableTotal + hallTotal;
   };
 
@@ -348,7 +393,9 @@ export default function Weddings() {
           >
             <option value="">Tất cả trạng thái</option>
             {statusList.map((s) => (
-              <option key={s} value={s}>{statusLabel[s]}</option>
+              <option key={s} value={s}>
+                {statusLabel[s]}
+              </option>
             ))}
           </select>
           <button
@@ -411,14 +458,18 @@ export default function Weddings() {
                 <td className="py-4 px-4 text-slate-800 whitespace-nowrap">
                   {wedding.bride_name}
                 </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{wedding.phone}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {wedding.phone}
+                </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {wedding.hall_name}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {formatDateVN(wedding.wedding_date)}
                 </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{wedding.shift}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {wedding.shift}
+                </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {wedding.table_count}
                 </td>
@@ -428,24 +479,40 @@ export default function Weddings() {
                     onChange={async (e) => {
                       const newStatus = e.target.value;
                       try {
-                        const res = await axios.put(`/api/weddings/${wedding.id}`, { status: newStatus });
-                        toast.success(res.data.message || `Cập nhật trạng thái → ${statusLabel[newStatus]}`);
+                        const res = await axios.put(
+                          `/api/weddings/${wedding.id}`,
+                          { status: newStatus },
+                        );
+                        toast.success(
+                          res.data.message ||
+                            `Cập nhật trạng thái → ${statusLabel[newStatus]}`,
+                        );
                         fetchWeddings();
                       } catch (err) {
-                        toast.error(err.response?.data?.message || "Lỗi cập nhật trạng thái!");
+                        toast.error(
+                          err.response?.data?.message ||
+                            "Lỗi cập nhật trạng thái!",
+                        );
                       }
                     }}
                     className={`text-xs font-medium rounded px-1 py-1 border ${
-                      wedding.status === "cho_xac_nhan" ? "bg-amber-50 text-amber-600 border-amber-200" :
-                      wedding.status === "da_xac_nhan" ? "bg-blue-50 text-blue-600 border-blue-200" :
-                      wedding.status === "dang_dien_ra" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                      wedding.status === "hoan_thanh" ? "bg-indigo-50 text-indigo-600 border-indigo-200" :
-                      wedding.status === "da_huy" ? "bg-red-50 text-red-500 border-red-200" :
-                      "bg-slate-50 text-slate-500 border-slate-200"
+                      wedding.status === "cho_xac_nhan"
+                        ? "bg-amber-50 text-amber-600 border-amber-200"
+                        : wedding.status === "da_xac_nhan"
+                          ? "bg-blue-50 text-blue-600 border-blue-200"
+                          : wedding.status === "dang_dien_ra"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                            : wedding.status === "hoan_thanh"
+                              ? "bg-indigo-50 text-indigo-600 border-indigo-200"
+                              : wedding.status === "da_huy"
+                                ? "bg-red-50 text-red-500 border-red-200"
+                                : "bg-slate-50 text-slate-500 border-slate-200"
                     }`}
                   >
                     {statusList.map((s) => (
-                      <option key={s} value={s}>{statusLabel[s]}</option>
+                      <option key={s} value={s}>
+                        {statusLabel[s]}
+                      </option>
                     ))}
                   </select>
                 </td>
@@ -479,7 +546,10 @@ export default function Weddings() {
             ))}
             {currentWeddings.length === 0 && (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td
+                  colSpan={10}
+                  className="py-8 text-center text-slate-500 whitespace-nowrap"
+                >
                   Không tìm thấy tiệc cưới nào.
                 </td>
               </tr>
@@ -569,16 +639,35 @@ export default function Weddings() {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Số điện thoại
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.phone}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                        setFormData({ ...formData, phone: val });
-                      }}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                    />
+                    <div>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-sm text-slate-600 font-medium whitespace-nowrap">
+                          🇻🇳 +84
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="xxxxxxxxx"
+                          maxLength={9}
+                          value={formData.phone ? formData.phone.slice(1) : ""}
+                          onChange={(e) => {
+                            const val = e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 9);
+                            setFormData({ ...formData, phone: "0" + val });
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-r-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                        />
+                      </div>
+                      {formData.phone &&
+                        formData.phone.length > 1 &&
+                        formData.phone.length < 10 && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Vui lòng nhập đủ 9 số (
+                            {formData.phone.slice(1).length}/9)
+                          </p>
+                        )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -632,21 +721,23 @@ export default function Weddings() {
                       {halls
                         .filter((h) => h.status !== "unavailable")
                         .filter((h) => {
-                          if (!formData.wedding_date || !formData.shift) return true;
+                          if (!formData.wedding_date || !formData.shift)
+                            return true;
                           return !weddings.find(
                             (w) =>
                               w.hall_id === h.id &&
                               String(w.id) !== String(editingId) &&
-                              w.wedding_date?.slice(0, 10) === formData.wedding_date &&
+                              w.wedding_date?.slice(0, 10) ===
+                                formData.wedding_date &&
                               w.shift === formData.shift &&
                               w.status !== "da_huy",
                           );
                         })
                         .map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.name} (Tối đa {h.max_tables} bàn)
-                        </option>
-                      ))}
+                          <option key={h.id} value={h.id}>
+                            {h.name} (Tối đa {h.max_tables} bàn)
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div>
@@ -699,12 +790,17 @@ export default function Weddings() {
                     >
                       <option value="">Chọn món ăn</option>
                       {foods
-                        .filter((f) => !selectedFoods.find((sf) => sf.food_id === f.id || sf.id === f.id))
+                        .filter(
+                          (f) =>
+                            !selectedFoods.find(
+                              (sf) => sf.food_id === f.id || sf.id === f.id,
+                            ),
+                        )
                         .map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name} - {f.price.toLocaleString("vi-VN")} đ
-                        </option>
-                      ))}
+                          <option key={f.id} value={f.id}>
+                            {f.name} - {f.price.toLocaleString("vi-VN")} đ
+                          </option>
+                        ))}
                     </select>
                     <button
                       type="button"
@@ -762,12 +858,17 @@ export default function Weddings() {
                     >
                       <option value="">Chọn dịch vụ</option>
                       {services
-                        .filter((s) => !selectedServices.find((ss) => ss.service_id === s.id || ss.id === s.id))
+                        .filter(
+                          (s) =>
+                            !selectedServices.find(
+                              (ss) => ss.service_id === s.id || ss.id === s.id,
+                            ),
+                        )
                         .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} - {s.price.toLocaleString("vi-VN")} đ
-                        </option>
-                      ))}
+                          <option key={s.id} value={s.id}>
+                            {s.name} - {s.price.toLocaleString("vi-VN")} đ
+                          </option>
+                        ))}
                     </select>
                     <input
                       type="number"
@@ -834,9 +935,16 @@ export default function Weddings() {
                       type="text"
                       inputMode="numeric"
                       required
-                      value={formData.deposit ? Number(formData.deposit).toLocaleString("vi-VN") : ""}
+                      value={
+                        formData.deposit
+                          ? Number(formData.deposit).toLocaleString("vi-VN")
+                          : ""
+                      }
                       onChange={(e) =>
-                        setFormData({ ...formData, deposit: e.target.value.replace(/\D/g, "") })
+                        setFormData({
+                          ...formData,
+                          deposit: e.target.value.replace(/\D/g, ""),
+                        })
                       }
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     />
@@ -844,18 +952,32 @@ export default function Weddings() {
 
                   {(() => {
                     const t = Number(formData.table_count) || 0;
-                    const foodPerTable = selectedFoods.reduce((s, f) => s + (f.booked_price || f.price || 0), 0);
+                    const foodPerTable = selectedFoods.reduce(
+                      (s, f) => s + (f.booked_price || f.price || 0),
+                      0,
+                    );
                     const foodTotal = foodPerTable * t;
-                    const serviceTotal = selectedServices.reduce((s, sv) => s + ((sv.booked_price || sv.price || 0) * (sv.quantity || 1)), 0);
-                    const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
-                    
+                    const serviceTotal = selectedServices.reduce(
+                      (s, sv) =>
+                        s +
+                        (sv.booked_price || sv.price || 0) * (sv.quantity || 1),
+                      0,
+                    );
+                    const selHall = halls.find(
+                      (h) => h.id.toString() === formData.hall_id,
+                    );
+
                     let pricePerTable = 0;
-                    if (formData.hall_min_price !== undefined && formData.hall_min_price !== null && formData.hall_min_price !== "") {
+                    if (
+                      formData.hall_min_price !== undefined &&
+                      formData.hall_min_price !== null &&
+                      formData.hall_min_price !== ""
+                    ) {
                       pricePerTable = Number(formData.hall_min_price);
                     } else {
                       pricePerTable = selHall?.type_id?.min_price || 0;
                     }
-                    
+
                     const hallTotal = pricePerTable * t;
                     const total = foodTotal + serviceTotal + hallTotal;
                     const deposit = Number(formData.deposit) || 0;
@@ -863,36 +985,68 @@ export default function Weddings() {
                       <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span className="text-indigo-700">Tiền thức ăn</span>
-                          <span className="font-semibold text-indigo-900">{foodTotal.toLocaleString("vi-VN")} đ</span>
+                          <span className="font-semibold text-indigo-900">
+                            {foodTotal.toLocaleString("vi-VN")} đ
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-indigo-700">Tiền dịch vụ</span>
-                          <span className="font-semibold text-indigo-900">{serviceTotal.toLocaleString("vi-VN")} đ</span>
+                          <span className="font-semibold text-indigo-900">
+                            {serviceTotal.toLocaleString("vi-VN")} đ
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-indigo-700">Tiền bàn ({pricePerTable.toLocaleString("vi-VN")} đ × {t} bàn)</span>
-                          <span className="font-semibold text-indigo-900">{hallTotal.toLocaleString("vi-VN")} đ</span>
+                          <span className="text-indigo-700">
+                            Tiền bàn ({pricePerTable.toLocaleString("vi-VN")} đ
+                            × {t} bàn)
+                          </span>
+                          <span className="font-semibold text-indigo-900">
+                            {hallTotal.toLocaleString("vi-VN")} đ
+                          </span>
                         </div>
                         <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
                           <span className="text-indigo-800">Tổng tiệc</span>
-                          <span className="text-indigo-900">{total.toLocaleString("vi-VN")} đ</span>
+                          <span className="text-indigo-900">
+                            {total.toLocaleString("vi-VN")} đ
+                          </span>
                         </div>
                         {deposit > 0 && (
                           <div className="flex justify-between text-amber-700">
                             <span>Đặt cọc</span>
-                            <span className="font-semibold">-{deposit.toLocaleString("vi-VN")} đ</span>
+                            <span className="font-semibold">
+                              -{deposit.toLocaleString("vi-VN")} đ
+                            </span>
                           </div>
                         )}
                         {deposit > 0 && (
                           <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold">
-                            <span className={total >= deposit ? "text-indigo-800" : "text-red-600"}>Còn lại</span>
-                            <span className={total >= deposit ? "text-indigo-900" : "text-red-600"}>
-                              {Math.max(0, total - deposit).toLocaleString("vi-VN")} đ
+                            <span
+                              className={
+                                total >= deposit
+                                  ? "text-indigo-800"
+                                  : "text-red-600"
+                              }
+                            >
+                              Còn lại
+                            </span>
+                            <span
+                              className={
+                                total >= deposit
+                                  ? "text-indigo-900"
+                                  : "text-red-600"
+                              }
+                            >
+                              {Math.max(0, total - deposit).toLocaleString(
+                                "vi-VN",
+                              )}{" "}
+                              đ
                             </span>
                           </div>
                         )}
                         {deposit > total && (
-                          <p className="text-xs text-red-500 mt-1">⚠ Tiền cọc lớn hơn tổng tiệc!</p>
+                          <p className="text-xs text-red-500 mt-1">
+                            ⚠ Tiền cọc lớn hơn tổng tiệc!
+                          </p>
                         )}
                       </div>
                     );
@@ -970,7 +1124,10 @@ export default function Weddings() {
                     },
                     {
                       label: "Trạng thái",
-                      value: statusLabel[viewingWedding.status] || viewingWedding.status || "-",
+                      value:
+                        statusLabel[viewingWedding.status] ||
+                        viewingWedding.status ||
+                        "-",
                       highlight: true,
                     },
                     {

@@ -1,5 +1,14 @@
-import { useState, useEffect } from "react";
-import { Search, Plus } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Search,
+  Plus,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  Filter,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "../common";
 
@@ -39,6 +48,29 @@ const normalizeStatus = (s) => {
   return map[s] ?? s ?? "available";
 };
 
+const SORT_OPTIONS = [
+  { key: "name", label: "Tên sảnh" },
+  { key: "type", label: "Loại sảnh" },
+  { key: "max_tables", label: "Số bàn tối đa" },
+  { key: "status", label: "Trạng thái" },
+];
+
+const DIRECTION_LABEL = {
+  asc: { text: "A → Z", icon: <ArrowUp size={13} /> },
+  desc: { text: "Z → A", icon: <ArrowDown size={13} /> },
+};
+const DIRECTION_LABEL_NUMBER = {
+  asc: { text: "Tăng dần", icon: <ArrowUp size={13} /> },
+  desc: { text: "Giảm dần", icon: <ArrowDown size={13} /> },
+};
+
+// --- Filter options ---
+const FILTER_STATUS_OPTIONS = [
+  { value: "all", label: "Tất cả", dot: null },
+  { value: "available", label: "Đang hoạt động", dot: "bg-emerald-500" },
+  { value: "unavailable", label: "Đang bảo trì", dot: "bg-red-500" },
+];
+
 export default function Halls() {
   const [halls, setHalls] = useState([]);
   const [hallTypes, setHallTypes] = useState([]);
@@ -53,11 +85,34 @@ export default function Halls() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState("");
+
+  // --- SORT STATE ---
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
+
+  // --- FILTER STATE ---
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+
   const itemsPerPage = 8;
 
   useEffect(() => {
     fetchHalls();
     fetchHallTypes();
+  }, []);
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handler = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target))
+        setSortOpen(false);
+      if (filterRef.current && !filterRef.current.contains(e.target))
+        setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const fetchHalls = async () => {
@@ -106,7 +161,9 @@ export default function Halls() {
         toast.success("Đã xóa sảnh thành công!");
         fetchHalls();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa sảnh!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi xóa sảnh!",
+        );
       }
     }
   };
@@ -117,12 +174,74 @@ export default function Halls() {
     setIsModalOpen(true);
   };
 
-  const filteredHalls = halls.filter((h) =>
-    h.name.toLowerCase().includes(search.toLowerCase()),
+  const handleSelectSort = (key, direction) => {
+    setSortConfig({ key, direction });
+    setSortOpen(false);
+    setCurrentPage(1);
+  };
+
+  const handleClearSort = () => {
+    setSortConfig({ key: null, direction: "asc" });
+    setSortOpen(false);
+    setCurrentPage(1);
+  };
+
+  const handleSelectFilter = (value) => {
+    setFilterStatus(value);
+    setFilterOpen(false);
+    setCurrentPage(1);
+  };
+
+  // Label trên button sort
+  const activeSortOption = SORT_OPTIONS.find((o) => o.key === sortConfig.key);
+  const dirLabel =
+    sortConfig.key === "max_tables"
+      ? DIRECTION_LABEL_NUMBER[sortConfig.direction]
+      : DIRECTION_LABEL[sortConfig.direction];
+
+  // Label trên button filter
+  const activeFilterOption = FILTER_STATUS_OPTIONS.find(
+    (o) => o.value === filterStatus,
   );
 
-  const totalPages = Math.ceil(filteredHalls.length / itemsPerPage);
-  const currentHalls = filteredHalls.slice(
+  // --- LỌC + SORT + PHÂN TRANG ---
+  const filteredHalls = halls
+    .filter((h) => h.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((h) => {
+      if (filterStatus === "all") return true;
+      return normalizeStatus(h.status) === filterStatus;
+    });
+
+  const sortedHalls = [...filteredHalls].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    let valA, valB;
+    switch (sortConfig.key) {
+      case "name":
+        valA = a.name?.toLowerCase() ?? "";
+        valB = b.name?.toLowerCase() ?? "";
+        break;
+      case "type":
+        valA = (a.type_id?.name ?? "").toLowerCase();
+        valB = (b.type_id?.name ?? "").toLowerCase();
+        break;
+      case "max_tables":
+        valA = Number(a.max_tables) || 0;
+        valB = Number(b.max_tables) || 0;
+        break;
+      case "status":
+        valA = statusLabel[a.status] ?? a.status ?? "";
+        valB = statusLabel[b.status] ?? b.status ?? "";
+        break;
+      default:
+        return 0;
+    }
+    if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedHalls.length / itemsPerPage);
+  const currentHalls = sortedHalls.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
@@ -133,7 +252,8 @@ export default function Halls() {
         <h1 className="text-2xl font-bold text-slate-800 uppercase">
           QUẢN LÝ SẢNH
         </h1>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+          {/* Search */}
           <div className="relative flex-1 sm:flex-none">
             <input
               type="text"
@@ -150,6 +270,181 @@ export default function Halls() {
               size={16}
             />
           </div>
+
+          {/* --- FILTER DROPDOWN --- */}
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setFilterOpen((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap
+                ${
+                  filterStatus !== "all"
+                    ? "bg-amber-50 border-amber-300 text-amber-700"
+                    : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+            >
+              <Filter size={15} />
+              {filterStatus !== "all" ? (
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${activeFilterOption?.dot}`}
+                  />
+                  {activeFilterOption?.label}
+                </span>
+              ) : (
+                "Lọc trạng thái"
+              )}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${filterOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {filterOpen && (
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Lọc theo trạng thái
+                  </p>
+                </div>
+                {FILTER_STATUS_OPTIONS.map((opt) => {
+                  const isActive = filterStatus === opt.value;
+                  // đếm số lượng cho mỗi option
+                  const count =
+                    opt.value === "all"
+                      ? halls.filter((h) =>
+                          h.name.toLowerCase().includes(search.toLowerCase()),
+                        ).length
+                      : halls
+                          .filter((h) =>
+                            h.name.toLowerCase().includes(search.toLowerCase()),
+                          )
+                          .filter(
+                            (h) => normalizeStatus(h.status) === opt.value,
+                          ).length;
+
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleSelectFilter(opt.value)}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors
+                        ${
+                          isActive
+                            ? "bg-amber-50 text-amber-700 font-medium"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {opt.dot && (
+                          <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+                        )}
+                        {opt.label}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded-full font-medium
+                          ${isActive ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}
+                        >
+                          {count}
+                        </span>
+                        {isActive && (
+                          <Check size={13} className="text-amber-500" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* --- SORT DROPDOWN --- */}
+          <div className="relative" ref={sortRef}>
+            <button
+              onClick={() => setSortOpen((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap
+                ${
+                  sortConfig.key
+                    ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                    : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+            >
+              <ArrowUpDown size={15} />
+              {sortConfig.key ? (
+                <span className="flex items-center gap-1">
+                  {activeSortOption?.label}
+                  <span className="text-indigo-400">·</span>
+                  {dirLabel.icon}
+                </span>
+              ) : (
+                "Sắp xếp"
+              )}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${sortOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {sortOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Sắp xếp theo
+                  </p>
+                </div>
+                {SORT_OPTIONS.map((opt) => {
+                  const isNumeric = opt.key === "max_tables";
+                  const dLabel = isNumeric
+                    ? DIRECTION_LABEL_NUMBER
+                    : DIRECTION_LABEL;
+                  return (
+                    <div key={opt.key}>
+                      <p className="px-3 pt-2 pb-1 text-xs font-medium text-slate-500">
+                        {opt.label}
+                      </p>
+                      {["asc", "desc"].map((dir) => {
+                        const isActive =
+                          sortConfig.key === opt.key &&
+                          sortConfig.direction === dir;
+                        return (
+                          <button
+                            key={dir}
+                            onClick={() => handleSelectSort(opt.key, dir)}
+                            className={`w-full flex items-center justify-between px-4 py-2 text-sm transition-colors
+                              ${
+                                isActive
+                                  ? "bg-indigo-50 text-indigo-700 font-medium"
+                                  : "text-slate-600 hover:bg-slate-50"
+                              }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              {dLabel[dir].icon}
+                              {dLabel[dir].text}
+                            </span>
+                            {isActive && (
+                              <Check size={13} className="text-indigo-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {sortConfig.key && (
+                  <>
+                    <div className="border-t border-slate-100 mt-1" />
+                    <button
+                      onClick={handleClearSort}
+                      className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
+                    >
+                      Xoá sắp xếp
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Thêm sảnh */}
           <button
             onClick={openNewModal}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
@@ -164,7 +459,7 @@ export default function Halls() {
           Danh sách sảnh
         </h2>
         <span className="text-sm font-medium text-slate-600">
-          Tổng số sảnh: {filteredHalls.length}
+          Tổng số sảnh: {sortedHalls.length}
         </span>
       </div>
 
@@ -195,7 +490,9 @@ export default function Halls() {
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {hall.type_id?.name || "-"}
                 </td>
-                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">{hall.max_tables}</td>
+                <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
+                  {hall.max_tables}
+                </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${statusStyle[hall.status] || ""}`}
@@ -223,7 +520,7 @@ export default function Halls() {
             ))}
             {currentHalls.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td colSpan={6} className="py-8 text-center text-slate-500">
                   Không tìm thấy sảnh nào.
                 </td>
               </tr>
@@ -339,7 +636,6 @@ export default function Halls() {
                   }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 >
-                  {/*  enum Model */}
                   {statusOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}

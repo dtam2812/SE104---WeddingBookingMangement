@@ -1,11 +1,33 @@
-import { useState, useEffect } from "react";
-import { Search, Plus } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Search,
+  Plus,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Check,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "../common";
 
 const authHeader = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
 });
+
+const SORT_OPTIONS = [
+  { key: "name", label: "Tên loại sảnh" },
+  { key: "min_price", label: "Đơn giá bàn tối thiểu" },
+];
+
+const DIRECTION_LABEL = {
+  asc: { text: "A → Z", icon: <ArrowUp size={13} /> },
+  desc: { text: "Z → A", icon: <ArrowDown size={13} /> },
+};
+const DIRECTION_LABEL_NUMBER = {
+  asc: { text: "Tăng dần", icon: <ArrowUp size={13} /> },
+  desc: { text: "Giảm dần", icon: <ArrowDown size={13} /> },
+};
 
 export default function HallTypes() {
   const [hallTypes, setHallTypes] = useState([]);
@@ -15,13 +37,25 @@ export default function HallTypes() {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-  const [formData, setFormData] = useState({
-    name: "",
-    min_price: "",
-  });
+  const [formData, setFormData] = useState({ name: "", min_price: "" });
+
+  // --- SORT STATE ---
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
 
   useEffect(() => {
     fetchHallTypes();
+  }, []);
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handler = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target))
+        setSortOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const fetchHallTypes = async () => {
@@ -63,7 +97,9 @@ export default function HallTypes() {
         toast.success("Đã xóa loại sảnh thành công!");
         fetchHallTypes();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa loại sảnh!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi xóa loại sảnh!",
+        );
       }
     }
   };
@@ -75,12 +111,52 @@ export default function HallTypes() {
     setIsModalOpen(true);
   };
 
+  const handleSelectSort = (key, direction) => {
+    setSortConfig({ key, direction });
+    setSortOpen(false);
+    setCurrentPage(1);
+  };
+
+  const handleClearSort = () => {
+    setSortConfig({ key: null, direction: "asc" });
+    setSortOpen(false);
+    setCurrentPage(1);
+  };
+
+  // Label trên button sort
+  const activeSortOption = SORT_OPTIONS.find((o) => o.key === sortConfig.key);
+  const dirLabel =
+    sortConfig.key === "min_price"
+      ? DIRECTION_LABEL_NUMBER[sortConfig.direction]
+      : DIRECTION_LABEL[sortConfig.direction];
+
+  // --- LỌC + SORT + PHÂN TRANG ---
   const filtered = hallTypes.filter((h) =>
     h.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const currentItems = filtered.slice(
+  const sortedItems = [...filtered].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    let valA, valB;
+    switch (sortConfig.key) {
+      case "name":
+        valA = a.name?.toLowerCase() ?? "";
+        valB = b.name?.toLowerCase() ?? "";
+        break;
+      case "min_price":
+        valA = Number(a.min_price) || 0;
+        valB = Number(b.min_price) || 0;
+        break;
+      default:
+        return 0;
+    }
+    if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
+  const currentItems = sortedItems.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
@@ -92,6 +168,7 @@ export default function HallTypes() {
           QUẢN LÝ LOẠI SẢNH
         </h1>
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Search */}
           <div className="relative flex-1 sm:flex-none">
             <input
               type="text"
@@ -108,6 +185,95 @@ export default function HallTypes() {
               size={16}
             />
           </div>
+
+          {/* --- SORT DROPDOWN --- */}
+          <div className="relative" ref={sortRef}>
+            <button
+              onClick={() => setSortOpen((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap
+                ${
+                  sortConfig.key
+                    ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                    : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+            >
+              <ArrowUpDown size={15} />
+              {sortConfig.key ? (
+                <span className="flex items-center gap-1">
+                  {activeSortOption?.label}
+                  <span className="text-indigo-400">·</span>
+                  {dirLabel.icon}
+                </span>
+              ) : (
+                "Sắp xếp"
+              )}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${sortOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {sortOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Sắp xếp theo
+                  </p>
+                </div>
+                {SORT_OPTIONS.map((opt) => {
+                  const isNumeric = opt.key === "min_price";
+                  const dLabel = isNumeric
+                    ? DIRECTION_LABEL_NUMBER
+                    : DIRECTION_LABEL;
+                  return (
+                    <div key={opt.key}>
+                      <p className="px-3 pt-2 pb-1 text-xs font-medium text-slate-500">
+                        {opt.label}
+                      </p>
+                      {["asc", "desc"].map((dir) => {
+                        const isActive =
+                          sortConfig.key === opt.key &&
+                          sortConfig.direction === dir;
+                        return (
+                          <button
+                            key={dir}
+                            onClick={() => handleSelectSort(opt.key, dir)}
+                            className={`w-full flex items-center justify-between px-4 py-2 text-sm transition-colors
+                              ${
+                                isActive
+                                  ? "bg-indigo-50 text-indigo-700 font-medium"
+                                  : "text-slate-600 hover:bg-slate-50"
+                              }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              {dLabel[dir].icon}
+                              {dLabel[dir].text}
+                            </span>
+                            {isActive && (
+                              <Check size={13} className="text-indigo-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {sortConfig.key && (
+                  <>
+                    <div className="border-t border-slate-100 mt-1" />
+                    <button
+                      onClick={handleClearSort}
+                      className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
+                    >
+                      Xoá sắp xếp
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Thêm loại sảnh */}
           <button
             onClick={openNewModal}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
@@ -122,7 +288,7 @@ export default function HallTypes() {
           Danh sách loại sảnh
         </h2>
         <span className="text-sm font-medium text-slate-600">
-          Tổng số: {filtered.length}
+          Tổng số: {sortedItems.length}
         </span>
       </div>
 
@@ -149,7 +315,9 @@ export default function HallTypes() {
                   {item.name}
                 </td>
                 <td className="py-4 px-4 text-emerald-600 font-medium whitespace-nowrap">
-                  {item.min_price ? Number(item.min_price).toLocaleString("vi-VN") + " đ" : "-"}
+                  {item.min_price
+                    ? Number(item.min_price).toLocaleString("vi-VN") + " đ"
+                    : "-"}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -171,7 +339,10 @@ export default function HallTypes() {
             ))}
             {currentItems.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td
+                  colSpan={4}
+                  className="py-8 text-center text-slate-500 whitespace-nowrap"
+                >
                   Không tìm thấy loại sảnh nào.
                 </td>
               </tr>
@@ -248,9 +419,16 @@ export default function HallTypes() {
                   type="text"
                   inputMode="numeric"
                   required
-                  value={formData.min_price ? Number(formData.min_price).toLocaleString("vi-VN") : ""}
+                  value={
+                    formData.min_price
+                      ? Number(formData.min_price).toLocaleString("vi-VN")
+                      : ""
+                  }
                   onChange={(e) =>
-                    setFormData({ ...formData, min_price: e.target.value.replace(/\D/g, "") })
+                    setFormData({
+                      ...formData,
+                      min_price: e.target.value.replace(/\D/g, ""),
+                    })
                   }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
