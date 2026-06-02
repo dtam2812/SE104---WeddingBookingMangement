@@ -1,11 +1,54 @@
-import { useState, useEffect } from "react";
-import { Search, Plus } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Search,
+  Plus,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  Filter,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "../common";
 
 const authHeader = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
 });
+
+// --- Sort config ---
+const SORT_OPTIONS = [
+  { key: "name", label: "Tên món ăn" },
+  { key: "price", label: "Đơn giá" },
+];
+const DIRECTION_LABEL = {
+  asc: { text: "A → Z", icon: <ArrowUp size={13} /> },
+  desc: { text: "Z → A", icon: <ArrowDown size={13} /> },
+};
+const DIRECTION_LABEL_NUMBER = {
+  asc: { text: "Tăng dần", icon: <ArrowUp size={13} /> },
+  desc: { text: "Giảm dần", icon: <ArrowDown size={13} /> },
+};
+
+// --- Filter config ---
+const FOOD_TYPES = ["Khai vị", "Món chính", "Tráng miệng", "Đồ uống"];
+const FILTER_OPTIONS = [
+  { value: "all", label: "Tất cả loại" },
+  ...FOOD_TYPES.map((t) => ({ value: t, label: t })),
+];
+
+// --- Pagination với dấu "..." ---
+const getPageNumbers = (current, total) => {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [1];
+  if (current > 3) pages.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push("...");
+  pages.push(total);
+  return pages;
+};
 
 export default function Foods() {
   const [foods, setFoods] = useState([]);
@@ -17,12 +60,33 @@ export default function Foods() {
   const [formData, setFormData] = useState({
     name: "",
     price: "",
-    notes: "",
+    foodType: "Món chính",
   });
   const [error, setError] = useState("");
 
+  // --- Sort state ---
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
+
+  // --- Filter state ---
+  const [filterType, setFilterType] = useState("all");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+
   useEffect(() => {
     fetchFoods();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (sortRef.current && !sortRef.current.contains(e.target))
+        setSortOpen(false);
+      if (filterRef.current && !filterRef.current.contains(e.target))
+        setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const fetchFoods = async () => {
@@ -53,7 +117,7 @@ export default function Foods() {
     setFormData({
       name: food.name,
       price: food.price.toString(),
-      notes: food.notes || "",
+      foodType: food.foodType || "Món chính",
     });
     setIsModalOpen(true);
   };
@@ -65,25 +129,73 @@ export default function Foods() {
         toast.success("Đã xóa món ăn thành công!");
         fetchFoods();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi xóa món ăn!");
+        toast.error(
+          err.response?.data?.message || "Có lỗi xảy ra khi xóa món ăn!",
+        );
       }
     }
   };
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ name: "", price: "", notes: "" });
+    setFormData({ name: "", price: "", foodType: "Món chính" });
     setIsModalOpen(true);
   };
 
-  const filteredFoods = foods.filter((f) =>
-    f.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const handleSelectSort = (key, direction) => {
+    setSortConfig({ key, direction });
+    setSortOpen(false);
+    setCurrentPage(1);
+  };
+  const handleClearSort = () => {
+    setSortConfig({ key: null, direction: "asc" });
+    setSortOpen(false);
+    setCurrentPage(1);
+  };
+  const handleSelectFilter = (value) => {
+    setFilterType(value);
+    setFilterOpen(false);
+    setCurrentPage(1);
+  };
 
-  const totalPages = Math.ceil(filteredFoods.length / itemsPerPage);
-  const currentFoods = filteredFoods.slice(
+  // Labels
+  const activeSortOption = SORT_OPTIONS.find((o) => o.key === sortConfig.key);
+  const dirLabel =
+    sortConfig.key === "price"
+      ? DIRECTION_LABEL_NUMBER[sortConfig.direction]
+      : DIRECTION_LABEL[sortConfig.direction];
+  const activeFilterOption = FILTER_OPTIONS.find((o) => o.value === filterType);
+
+  // --- Lọc + Sort + Phân trang ---
+  const filteredFoods = foods
+    .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((f) => filterType === "all" || f.foodType === filterType);
+
+  const sortedFoods = [...filteredFoods].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    let valA, valB;
+    if (sortConfig.key === "name") {
+      valA = a.name?.toLowerCase() ?? "";
+      valB = b.name?.toLowerCase() ?? "";
+    } else {
+      valA = Number(a.price) || 0;
+      valB = Number(b.price) || 0;
+    }
+    if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedFoods.length / itemsPerPage);
+  const currentFoods = sortedFoods.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
+  );
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
+
+  // Đếm theo loại (dựa trên kết quả search hiện tại, chưa filter type)
+  const baseForCount = foods.filter((f) =>
+    f.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -93,6 +205,7 @@ export default function Foods() {
           QUẢN LÝ THỰC ĐƠN
         </h1>
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Search */}
           <div className="relative flex-1 sm:flex-none">
             <input
               type="text"
@@ -109,6 +222,152 @@ export default function Foods() {
               size={16}
             />
           </div>
+
+          {/* --- FILTER DROPDOWN --- */}
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setFilterOpen((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap
+                ${
+                  filterType !== "all"
+                    ? "bg-amber-50 border-amber-300 text-amber-700"
+                    : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+            >
+              <Filter size={15} />
+              {filterType !== "all"
+                ? activeFilterOption?.label
+                : "Lọc loại món"}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${filterOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {filterOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Lọc theo loại
+                  </p>
+                </div>
+                {FILTER_OPTIONS.map((opt) => {
+                  const isActive = filterType === opt.value;
+                  const count =
+                    opt.value === "all"
+                      ? baseForCount.length
+                      : baseForCount.filter((f) => f.foodType === opt.value)
+                          .length;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleSelectFilter(opt.value)}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors
+                        ${isActive ? "bg-amber-50 text-amber-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
+                    >
+                      <span>{opt.label}</span>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded-full font-medium
+                          ${isActive ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}
+                        >
+                          {count}
+                        </span>
+                        {isActive && (
+                          <Check size={13} className="text-amber-500" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* --- SORT DROPDOWN --- */}
+          <div className="relative" ref={sortRef}>
+            <button
+              onClick={() => setSortOpen((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap
+                ${
+                  sortConfig.key
+                    ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                    : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                }`}
+            >
+              <ArrowUpDown size={15} />
+              {sortConfig.key ? (
+                <span className="flex items-center gap-1">
+                  {activeSortOption?.label}
+                  <span className="text-indigo-400">·</span>
+                  {dirLabel.icon}
+                </span>
+              ) : (
+                "Sắp xếp"
+              )}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${sortOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {sortOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Sắp xếp theo
+                  </p>
+                </div>
+                {SORT_OPTIONS.map((opt) => {
+                  const isNumeric = opt.key === "price";
+                  const dLabel = isNumeric
+                    ? DIRECTION_LABEL_NUMBER
+                    : DIRECTION_LABEL;
+                  return (
+                    <div key={opt.key}>
+                      <p className="px-3 pt-2 pb-1 text-xs font-medium text-slate-500">
+                        {opt.label}
+                      </p>
+                      {["asc", "desc"].map((dir) => {
+                        const isActive =
+                          sortConfig.key === opt.key &&
+                          sortConfig.direction === dir;
+                        return (
+                          <button
+                            key={dir}
+                            onClick={() => handleSelectSort(opt.key, dir)}
+                            className={`w-full flex items-center justify-between px-4 py-2 text-sm transition-colors
+                              ${isActive ? "bg-indigo-50 text-indigo-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
+                          >
+                            <span className="flex items-center gap-2">
+                              {dLabel[dir].icon}
+                              {dLabel[dir].text}
+                            </span>
+                            {isActive && (
+                              <Check size={13} className="text-indigo-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {sortConfig.key && (
+                  <>
+                    <div className="border-t border-slate-100 mt-1" />
+                    <button
+                      onClick={handleClearSort}
+                      className="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
+                    >
+                      Xoá sắp xếp
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Thêm món ăn */}
           <button
             onClick={openNewModal}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm"
@@ -123,7 +382,7 @@ export default function Foods() {
           Danh sách món ăn
         </h2>
         <span className="text-sm font-medium text-slate-600">
-          Tổng số món ăn: {filteredFoods.length}
+          Tổng số món ăn: {sortedFoods.length}
         </span>
       </div>
 
@@ -134,7 +393,7 @@ export default function Foods() {
               <th className="py-4 px-4 font-semibold">STT</th>
               <th className="py-4 px-4 font-semibold">TÊN MÓN ĂN</th>
               <th className="py-4 px-4 font-semibold">ĐƠN GIÁ</th>
-              <th className="py-4 px-4 font-semibold">GHI CHÚ</th>
+              <th className="py-4 px-4 font-semibold">LOẠI</th>
               <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
@@ -154,7 +413,7 @@ export default function Foods() {
                   {food.price.toLocaleString("vi-VN")} đ
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {food.notes || "-"}
+                  {food.foodType || "-"}
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -176,7 +435,7 @@ export default function Foods() {
             ))}
             {currentFoods.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-500 whitespace-nowrap">
+                <td colSpan={5} className="py-8 text-center text-slate-500">
                   Không tìm thấy món ăn nào.
                 </td>
               </tr>
@@ -185,32 +444,44 @@ export default function Foods() {
         </table>
       </div>
 
+      {/* --- PAGINATION với dấu "..." --- */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-6">
+        <div className="flex justify-center items-center gap-1 mt-6">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50 text-sm"
           >
             «
           </button>
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
-                currentPage === i + 1
-                  ? "bg-slate-800 text-white"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
+
+          {pageNumbers.map((page, i) =>
+            page === "..." ? (
+              <span
+                key={`ellipsis-${i}`}
+                className="w-8 h-8 flex items-center justify-center text-slate-400 text-sm select-none"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
+                  currentPage === page
+                    ? "bg-slate-800 text-white"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {page}
+              </button>
+            ),
+          )}
+
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50 text-sm"
           >
             »
           </button>
@@ -253,26 +524,37 @@ export default function Foods() {
                   type="text"
                   inputMode="numeric"
                   required
-                  value={formData.price ? Number(formData.price).toLocaleString("vi-VN") : ""}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, "");
-                    setFormData({ ...formData, price: raw });
-                  }}
+                  value={
+                    formData.price
+                      ? Number(formData.price).toLocaleString("vi-VN")
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price: e.target.value.replace(/\D/g, ""),
+                    })
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Ghi chú
+                  Loại
                 </label>
-                <textarea
-                  rows={3}
-                  value={formData.notes}
+                <select
+                  value={formData.foodType}
                   onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
+                    setFormData({ ...formData, foodType: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all resize-none text-sm"
-                />
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                >
+                  {FOOD_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-center gap-3 pt-4">
                 <button

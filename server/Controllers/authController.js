@@ -40,9 +40,8 @@ export const login = async (req, res) => {
 
     const payload = { id: user.id, role: user.role };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || "3600",
+      expiresIn: Number(process.env.JWT_EXPIRES_IN) || 3600,
     });
-
     const userObj = user.toJSON();
     delete userObj.password;
 
