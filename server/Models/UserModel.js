@@ -7,11 +7,7 @@ const UserSchema = new mongoose.Schema(
     full_name: { type: String, trim: true },
     phone: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },
-    role: {
-      type: String,
-      enum: ["admin", "staff"],
-      default: "staff",
-    },
+    role: { type: String, default: "staff" },
     status: {
       type: String,
       enum: ["active", "inactive"],

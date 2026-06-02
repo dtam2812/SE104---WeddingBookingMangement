@@ -35,9 +35,13 @@ const WeddingSchema = new mongoose.Schema(
     phone: { type: String, required: true, trim: true },
 
     wedding_date: { type: Date, required: true },
+    shift_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shift",
+      required: true,
+    },
     shift: {
       type: String,
-      enum: ["Trưa", "Tối"],
       required: true,
     },
 

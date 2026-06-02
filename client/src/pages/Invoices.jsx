@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, X, CreditCard, RotateCcw, FileText } from "lucide-react";
+import { Search, Plus, X, CreditCard, RotateCcw, FileText, Trash2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import { toast } from "react-toastify";
@@ -49,6 +49,7 @@ function _arrayBufferToBase64(buffer) {
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [weddings, setWeddings] = useState([]);
+  const [allServices, setAllServices] = useState([]);
   const [penaltyRate, setPenaltyRate] = useState(0.01); // fallback 1%
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -64,6 +65,9 @@ export default function Invoices() {
     table_count: "",
     apply_penalty: false,
   });
+  const [extraServices, setExtraServices] = useState([]);
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
 
   // ── Payment modal ─────────────────────────────────────────────────────────
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -83,7 +87,15 @@ export default function Invoices() {
     fetchInvoices();
     fetchWeddings();
     fetchPenaltyRate();
+    fetchServices();
   }, []);
+
+  const fetchServices = async () => {
+    try {
+      const res = await axios.get("/api/services");
+      setAllServices(res.data.data || []);
+    } catch {}
+  };
 
   const fetchInvoices = async () => {
     const res = await axios.get("/api/invoices");
@@ -126,7 +138,7 @@ export default function Invoices() {
     e.preventDefault();
     setCreateError("");
     try {
-      await axios.post("/api/invoices", formData);
+      await axios.post("/api/invoices", { ...formData, extra_services: extraServices });
       setIsModalOpen(false);
       fetchInvoices();
     } catch (err) {
@@ -138,6 +150,8 @@ export default function Invoices() {
 
   const openNewModal = () => {
     setFormData({ wedding_id: "", table_count: "", apply_penalty: false });
+    setExtraServices([]);
+    setServiceSearch("");
     setCreateError("");
     setIsModalOpen(true);
   };
@@ -357,6 +371,18 @@ export default function Invoices() {
             "Dịch vụ",
             `${s.quantity}`,
             `${(s.booked_price || s.price).toLocaleString("vi-VN")} đ`,
+            `${total.toLocaleString("vi-VN")} đ`,
+          ]);
+        });
+      }
+      if (invoice.extra_services) {
+        invoice.extra_services.forEach((s) => {
+          const total = s.price * s.quantity;
+          bodyRows.push([
+            s.name,
+            "DV thêm",
+            `${s.quantity}`,
+            `${s.price.toLocaleString("vi-VN")} đ`,
             `${total.toLocaleString("vi-VN")} đ`,
           ]);
         });
@@ -652,14 +678,12 @@ export default function Invoices() {
                           <CreditCard size={12} /> Thanh toán
                         </button>
                       )}
-                      {user?.role === "admin" && (
-                        <button
-                          onClick={() => handleDelete(invoice.id)}
-                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
-                        >
-                          Xóa
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleDelete(invoice.id)}
+                        className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
+                      >
+                        Xóa
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -817,6 +841,70 @@ export default function Invoices() {
                     }`}
                   />
                 </button>
+              </div>
+
+              {/* Extra services */}
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-sm font-medium text-slate-700 mb-3">Dịch vụ thêm (ngoài tiệc cưới)</p>
+                <div className="flex gap-2 mb-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      placeholder="Tìm dịch vụ..."
+                      value={serviceSearch}
+                      onChange={(e) => { setServiceSearch(e.target.value); setShowServiceDropdown(true); }}
+                      onFocus={() => setShowServiceDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowServiceDropdown(false), 200)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                    />
+                    {showServiceDropdown && (
+                      <div className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
+                        {allServices
+                          .filter((s) => s.status !== "inactive")
+                          .filter((s) =>
+                            !extraServices.find((es) => es.service_id === s.id || es.id === s.id),
+                          )
+                          .filter((s) =>
+                            s.name.toLowerCase().includes(serviceSearch.toLowerCase()),
+                          )
+                          .map((s) => (
+                            <div
+                              key={s.id}
+                              onClick={() => {
+                                setExtraServices([...extraServices, { service_id: s.id, name: s.name, price: s.price, quantity: 1 }]);
+                                setServiceSearch("");
+                                setShowServiceDropdown(false);
+                              }}
+                              className="px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between"
+                            >
+                              <span>{s.name}</span>
+                              <span className="text-emerald-600 font-medium">{s.price.toLocaleString("vi-VN")} đ</span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {extraServices.length > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                    {extraServices.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between bg-white p-2 rounded border border-slate-100 text-sm">
+                        <span className="font-medium text-slate-800">{s.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-emerald-600 font-medium">{(s.price * s.quantity).toLocaleString("vi-VN")} đ</span>
+                          <span className="text-xs text-slate-400">x{s.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => setExtraServices(extraServices.filter((_, j) => j !== i))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Actions */}

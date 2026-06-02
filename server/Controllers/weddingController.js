@@ -1,9 +1,11 @@
 import { Wedding, Hall, Invoice, HallType, Rule } from "../Models/index.js";
+import Shift from "../Models/ShiftModel.js";
 
 const formatWedding = (w) => ({
   ...w,
   id: w._id.toString(),
   hall_id: w.hall_id ? w.hall_id.toString() : null,
+  shift_id: w.shift_id ? w.shift_id.toString() : null,
 });
 
 const getHallMinPrice = async (hallId) => {
@@ -18,38 +20,33 @@ const getHallMinPrice = async (hallId) => {
   return 0;
 };
 
+const getHallMinPriceVal = async (hallId, hallMinPrice) => {
+  if (hallMinPrice !== undefined && hallMinPrice !== null) return hallMinPrice;
+  if (!hallId) return 0;
+  const hall = await Hall.findById(hallId);
+  if (hall && hall.type_id) {
+    const hallType = await HallType.findById(hall.type_id);
+    if (hallType) return hallType.min_price || 0;
+  }
+  return 0;
+};
+
 const calculateWeddingTotal = async (data) => {
   const tableCount = Number(data.table_count) || 0;
 
-  // Calculate food total
+  // Food total = sum of food prices per table × number of tables
   const foodTotal = (data.foods || []).reduce(
     (sum, f) => sum + (f.booked_price || f.price || 0) * (f.quantity || 1),
     0,
   ) * tableCount;
 
-  // Calculate service total
+  // Service total
   const serviceTotal = (data.services || []).reduce(
     (sum, s) => sum + (s.price || s.booked_price || 0) * (s.quantity || 1),
     0,
   );
 
-  // Calculate hall total
-  let hallTotal = 0;
-  if (data.hall_id) {
-    if (data.hall_min_price !== undefined && data.hall_min_price !== null) {
-      hallTotal = data.hall_min_price * tableCount;
-    } else {
-      const hall = await Hall.findById(data.hall_id);
-      if (hall && hall.type_id) {
-        const hallType = await HallType.findById(hall.type_id);
-        if (hallType) {
-          hallTotal = (hallType.min_price || 0) * tableCount;
-        }
-      }
-    }
-  }
-
-  return foodTotal + serviceTotal + hallTotal;
+  return foodTotal + serviceTotal;
 };
 
 // ── Auto-update statuses based on wedding_date ──────────────────────────
@@ -143,6 +140,15 @@ export const create = async (req, res) => {
       });
     }
 
+    // ── Resolve shift_id from shift name or vice versa ─────────────────────
+    if (body.shift && !body.shift_id) {
+      const shiftDoc = await Shift.findOne({ name: body.shift });
+      if (shiftDoc) body.shift_id = shiftDoc._id;
+    } else if (body.shift_id && !body.shift) {
+      const shiftDoc = await Shift.findById(body.shift_id);
+      if (shiftDoc) body.shift = shiftDoc.name;
+    }
+
     // ── Validate table_count + reserve <= hall.max_tables ──────────────────
     if (body.hall_id) {
       const hall = await Hall.findById(body.hall_id);
@@ -166,6 +172,20 @@ export const create = async (req, res) => {
     // ── Lock hall price if status is confirmed ────────────────────────────
     if (body.status && body.status !== "cho_xac_nhan") {
       body.hall_min_price = await getHallMinPrice(body.hall_id);
+    }
+
+    // ── Validate foodPerTable >= hall min_price ──────────────────────────
+    const tableCount = Number(body.table_count) || 0;
+    const foodPerTable = (body.foods || []).reduce(
+      (s, f) => s + (f.booked_price || f.price || 0),
+      0,
+    );
+    const minPrice = await getHallMinPriceVal(body.hall_id, body.hall_min_price);
+    if (minPrice > 0 && foodPerTable > 0 && foodPerTable < minPrice) {
+      return res.status(400).json({
+        success: false,
+        message: `Tổng giá món ăn mỗi bàn (${foodPerTable.toLocaleString("vi-VN")} đ) phải đạt tối thiểu ${minPrice.toLocaleString("vi-VN")} đ theo loại sảnh!`,
+      });
     }
 
     // ── Validate deposit <= tổng tiệc ──────────────────────────────────────
@@ -203,6 +223,17 @@ export const update = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Không tìm thấy tiệc cưới!" });
+    }
+
+    // ── Resolve shift_id from shift name or vice versa ─────────────────────
+    const effectiveShift = body.shift || currentWedding.shift;
+    const effectiveShiftId = body.shift_id || currentWedding.shift_id;
+    if (effectiveShift && !effectiveShiftId) {
+      const shiftDoc = await Shift.findOne({ name: effectiveShift });
+      if (shiftDoc) body.shift_id = shiftDoc._id;
+    } else if (effectiveShiftId && !effectiveShift) {
+      const shiftDoc = await Shift.findById(effectiveShiftId);
+      if (shiftDoc) body.shift = shiftDoc.name;
     }
 
     // ── Validate table_count + reserve <= hall.max_tables ──────────────────
@@ -269,13 +300,30 @@ export const update = async (req, res) => {
       body.hall_min_price = null;
     }
 
+    // ── Validate foodPerTable >= hall min_price ──────────────────────────
+    const effTableCount = body.table_count !== undefined ? Number(body.table_count) : currentWedding.table_count;
+    const effFoods = body.foods !== undefined ? body.foods : currentWedding.foods;
+    const foodPerTable = (effFoods || []).reduce(
+      (s, f) => s + (f.booked_price || f.price || 0),
+      0,
+    );
+    const effHallId = body.hall_id !== undefined ? body.hall_id : currentWedding.hall_id;
+    const effMinPrice = body.hall_min_price !== undefined ? body.hall_min_price : currentWedding.hall_min_price;
+    const minPrice = await getHallMinPriceVal(effHallId, effMinPrice);
+    if (minPrice > 0 && foodPerTable > 0 && foodPerTable < minPrice) {
+      return res.status(400).json({
+        success: false,
+        message: `Tổng giá món ăn mỗi bàn (${foodPerTable.toLocaleString("vi-VN")} đ) phải đạt tối thiểu ${minPrice.toLocaleString("vi-VN")} đ theo loại sảnh!`,
+      });
+    }
+
     // ── Validate deposit <= tổng tiệc ──────────────────────────────────────
     const mergedData = {
-      table_count: body.table_count !== undefined ? body.table_count : currentWedding.table_count,
-      foods: body.foods !== undefined ? body.foods : currentWedding.foods,
+      table_count: effTableCount,
+      foods: effFoods,
       services: body.services !== undefined ? body.services : currentWedding.services,
-      hall_id: body.hall_id !== undefined ? body.hall_id : currentWedding.hall_id,
-      hall_min_price: body.hall_min_price !== undefined ? body.hall_min_price : currentWedding.hall_min_price,
+      hall_id: effHallId,
+      hall_min_price: effMinPrice,
     };
 
     const total = await calculateWeddingTotal(mergedData);

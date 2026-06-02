@@ -1,4 +1,3 @@
-import { Hall, HallType } from "../Models/index.js";
 import { Invoice } from "../Models/index.js";
 import { Rule } from "../Models/index.js";
 import { Wedding } from "../Models/index.js";
@@ -28,11 +27,17 @@ export const getById = async (req, res) => {
 
 export const getRevenueReport = async (req, res) => {
   try {
-    const { month, year, type } = req.query;
+    const { date, month, year, type } = req.query;
     const filter = {};
 
     if (type === "all") {
       // No date filter - get all
+    } else if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+      filter.wedding_date = { $gte: start, $lte: end };
     } else if (month && year) {
       const start = new Date(year, month - 1, 1);
       const end = new Date(year, month, 1);
@@ -57,6 +62,12 @@ export const getRevenueReport = async (req, res) => {
 
     if (type === "all") {
       // Không lọc ngày
+    } else if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+      weddingFilter.wedding_date = { $gte: start, $lte: end };
     } else if (month && year) {
       const start = new Date(year, month - 1, 1);
       const end = new Date(year, month, 1);
@@ -117,7 +128,7 @@ export const getRevenueReport = async (req, res) => {
 
 // ─── CREATE ──────────────────────────────────────────────────────────────────
 export const create = async (req, res) => {
-  const { wedding_id, table_count, apply_penalty, payment_due_date } = req.body;
+  const { wedding_id, table_count, apply_penalty, payment_due_date, extra_services } = req.body;
 
   if (!wedding_id) {
     return res
@@ -156,23 +167,12 @@ export const create = async (req, res) => {
       0,
     );
 
-    // Tiền bàn = locked min_price của loại sảnh * số bàn
-    let hallTotal = 0;
-    if (wedding.hall_id) {
-      if (wedding.hall_min_price !== undefined && wedding.hall_min_price !== null) {
-        hallTotal = wedding.hall_min_price * actualTableCount;
-      } else {
-        const hall = await Hall.findById(wedding.hall_id);
-        if (hall && hall.type_id) {
-          const hallType = await HallType.findById(hall.type_id);
-          if (hallType) {
-            hallTotal = (hallType.min_price || 0) * actualTableCount;
-          }
-        }
-      }
-    }
+    const extraServiceTotal = (extra_services || []).reduce(
+      (sum, s) => sum + Number(s.price || 0) * Number(s.quantity || 1),
+      0,
+    );
 
-    const total_amount = foodTotal + serviceTotal + hallTotal;
+    const total_amount = foodTotal + serviceTotal + extraServiceTotal;
     const remaining_amount = Math.max(0, total_amount - (wedding.deposit || 0));
 
     const invoiceData = {
@@ -186,6 +186,7 @@ export const create = async (req, res) => {
       deposit: wedding.deposit || 0,
       remaining_amount,
       paid_amount: 0,
+      extra_services: extra_services || [],
       late_days: 0,
       penalty_amount: 0,
       payment_due_date:

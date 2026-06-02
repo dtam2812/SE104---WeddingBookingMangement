@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { User } from "../models/index.js";
+import { User, Role } from "../models/index.js";
 
 const SALT_ROUNDS = 10;
 
@@ -38,12 +38,17 @@ export const login = async (req, res) => {
       });
     }
 
-    const payload = { id: user.id, role: user.role };
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(user.role);
+    const roleDoc = isObjectId ? await Role.findById(user.role) : await Role.findOne({ name: { $regex: new RegExp("^" + user.role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i") } });
+    const roleName = roleDoc?.name || user.role || "staff";
+    const payload = { id: user.id, role: roleName };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "1h",
     });
     const userObj = user.toJSON();
     delete userObj.password;
+    userObj.role = roleName;
+    userObj.permissions = roleDoc?.permissions || [];
 
     res.json({ success: true, token, user: userObj });
   } catch (err) {

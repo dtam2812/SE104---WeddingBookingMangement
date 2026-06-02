@@ -13,6 +13,9 @@ import Foods from "./pages/Foods";
 import Services from "./pages/Services";
 import Rules from "./pages/Rules";
 import HallTypes from "./pages/HallTypes";
+import FoodTypes from "./pages/FoodTypes";
+import Roles from "./pages/Roles";
+import Shifts from "./pages/Shifts";
 import Weddings from "./pages/Weddings";
 import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
@@ -70,40 +73,18 @@ export default function App() {
           }
         >
           <Route index element={<Dashboard />} />
-          <Route
-            path="accounts"
-            element={
-              user?.role === "admin" ? <Accounts /> : <Navigate to="/" />
-            }
-          />
-          <Route
-            path="halls"
-            element={user?.role === "admin" ? <Halls /> : <Navigate to="/" />}
-          />
-          <Route
-            path="hall-types"
-            element={user?.role === "admin" ? <HallTypes /> : <Navigate to="/" />}
-          />
-          <Route
-            path="foods"
-            element={user?.role === "admin" ? <Foods /> : <Navigate to="/" />}
-          />
-          <Route
-            path="services"
-            element={
-              user?.role === "admin" ? <Services /> : <Navigate to="/" />
-            }
-          />
-          <Route
-            path="rules"
-            element={user?.role === "admin" ? <Rules /> : <Navigate to="/" />}
-          />
-          <Route path="weddings" element={<Weddings />} />
-          <Route path="invoices" element={<Invoices />} />
-          <Route
-            path="reports"
-            element={user?.role === "admin" ? <Reports /> : <Navigate to="/" />}
-          />
+          <Route path="accounts" element={user?.permissions?.includes("accounts") || user?.role?.toLowerCase() === "admin" ? <Accounts /> : <Navigate to="/" />} />
+          <Route path="halls" element={user?.permissions?.includes("halls") || user?.role?.toLowerCase() === "admin" ? <Halls /> : <Navigate to="/" />} />
+          <Route path="hall-types" element={user?.permissions?.includes("hall-types") || user?.role?.toLowerCase() === "admin" ? <HallTypes /> : <Navigate to="/" />} />
+          <Route path="foods" element={user?.permissions?.includes("foods") || user?.role?.toLowerCase() === "admin" ? <Foods /> : <Navigate to="/" />} />
+          <Route path="food-types" element={user?.permissions?.includes("food-types") || user?.role?.toLowerCase() === "admin" ? <FoodTypes /> : <Navigate to="/" />} />
+          <Route path="services" element={user?.permissions?.includes("services") || user?.role?.toLowerCase() === "admin" ? <Services /> : <Navigate to="/" />} />
+          <Route path="shifts" element={user?.permissions?.includes("shifts") || user?.role?.toLowerCase() === "admin" ? <Shifts /> : <Navigate to="/" />} />
+          <Route path="roles" element={user?.permissions?.includes("roles") || user?.role?.toLowerCase() === "admin" ? <Roles /> : <Navigate to="/" />} />
+          <Route path="rules" element={user?.permissions?.includes("rules") || user?.role?.toLowerCase() === "admin" ? <Rules /> : <Navigate to="/" />} />
+          <Route path="weddings" element={user?.permissions?.includes("weddings") || user?.role?.toLowerCase() === "admin" ? <Weddings /> : <Navigate to="/" />} />
+          <Route path="invoices" element={user?.permissions?.includes("invoices") || user?.role?.toLowerCase() === "admin" ? <Invoices /> : <Navigate to="/" />} />
+          <Route path="reports" element={user?.permissions?.includes("reports") || user?.role?.toLowerCase() === "admin" ? <Reports /> : <Navigate to="/" />} />
         </Route>
       </Routes>
     </Router>

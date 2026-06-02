@@ -5,10 +5,14 @@ const FoodSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     price: { type: Number, required: true, min: 0 },
     foodType: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FoodType",
       required: true,
-      enum: ["Khai vị", "Món chính", "Tráng miệng", "Đồ uống"],
-      default: "Món chính",
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
     },
   },
   { timestamps: true },

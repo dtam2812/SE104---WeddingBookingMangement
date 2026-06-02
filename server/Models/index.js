@@ -8,3 +8,6 @@ export { default as Service } from "./ServiceModel.js";
 export { default as Rule } from "./RuleModel.js";
 export { default as Wedding } from "./WeddingModel.js";
 export { default as Invoice } from "./InvoiceModel.js";
+export { default as FoodType } from "./FoodTypeModel.js";
+export { default as Role } from "./RoleModel.js";
+export { default as Shift } from "./ShiftModel.js";

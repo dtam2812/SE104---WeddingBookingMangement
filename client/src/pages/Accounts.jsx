@@ -7,17 +7,10 @@ const authHeader = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
 });
 
-const roleOptions = [
-  { value: "staff", label: "Nhân viên" },
-  { value: "admin", label: "Admin" },
-];
-
 const statusOptions = [
   { value: "active", label: "Hoạt động" },
   { value: "inactive", label: "Bị khoá" },
 ];
-
-const roleLabel = { admin: "Admin", staff: "Nhân viên" };
 const statusLabel = { active: "Hoạt động", inactive: "Bị khoá" };
 const statusStyle = {
   active: "bg-emerald-50 text-emerald-600 border border-emerald-200",
@@ -35,6 +28,7 @@ const fmtDate = (dateStr) => {
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -53,12 +47,27 @@ export default function Accounts() {
   const itemsPerPage = 7;
 
   const fetchAccounts = async () => {
-    const res = await axios.get("/api/users", authHeader());
-    setAccounts(res.data.data || []);
+    try {
+      const res = await axios.get("/api/users", authHeader());
+      setAccounts(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+      setAccounts([]);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const res = await axios.get("/api/roles");
+      setRoles(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
     fetchAccounts();
+    fetchRoles();
   }, []);
 
   const validate = () => {
@@ -122,7 +131,7 @@ export default function Accounts() {
       full_name: acc.full_name,
       phone: acc.phone || "",
       email: acc.email || "",
-      role: acc.role,
+      role: roles.find((r) => r.id === acc.role || r._id === acc.role)?.name || acc.role,
       status: acc.status,
     });
     setIsModalOpen(true);
@@ -152,7 +161,7 @@ export default function Accounts() {
       full_name: "",
       phone: "",
       email: "",
-      role: "staff",
+      role: roles.length > 0 ? roles[0].name : "",
       status: "active",
     });
     setIsModalOpen(true);
@@ -271,7 +280,7 @@ export default function Accounts() {
                   {acc.email || "-"}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {roleLabel[acc.role] || acc.role}
+                  {roles.find((r) => r.id === acc.role || r._id === acc.role || r.name === acc.role)?.name || acc.role || "-"}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {fmtDate(acc.createdAt)}
@@ -516,9 +525,9 @@ export default function Accounts() {
                   }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 >
-                  {roleOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.name}>
+                      {r.name}
                     </option>
                   ))}
                 </select>

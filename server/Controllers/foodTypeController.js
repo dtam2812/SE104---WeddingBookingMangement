@@ -1,28 +1,10 @@
-import mongoose from "mongoose";
-import { Food, Wedding } from "../Models/index.js";
+import { FoodType, Food } from "../Models/index.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getAll = async (req, res) => {
   try {
-    const { type, sortBy, order } = req.query;
-
-    let filter = {};
-    if (type && type !== "all") {
-      const foodType = await mongoose.model("FoodType").findOne({ name: type });
-      if (foodType) filter.foodType = foodType._id;
-    }
-
-    let sort = { createdAt: 1 };
-    if (sortBy === "price") {
-      sort = { price: order === "asc" ? 1 : -1 };
-    } else if (sortBy === "name") {
-      sort = { name: order === "desc" ? -1 : 1 };
-    } else if (sortBy === "createdAt") {
-      sort = { createdAt: order === "asc" ? 1 : -1 };
-    }
-
-    const data = await Food.find(filter).sort(sort).populate("foodType");
+    const data = await FoodType.find().sort({ createdAt: 1 });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -31,11 +13,11 @@ export const getAll = async (req, res) => {
 
 export const getById = async (req, res) => {
   try {
-    const doc = await Food.findById(req.params.id).populate("foodType");
+    const doc = await FoodType.findById(req.params.id);
     if (!doc) {
       return res
         .status(404)
-        .json({ success: false, message: "Không tìm thấy món ăn!" });
+        .json({ success: false, message: "Không tìm thấy loại món ăn!" });
     }
     res.json({ success: true, data: doc });
   } catch (err) {
@@ -47,16 +29,23 @@ export const create = async (req, res) => {
   try {
     const { name } = req.body;
     if (name) {
-      const existing = await Food.findOne({ name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" } });
+      const existing = await FoodType.findOne({
+        name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" },
+      });
       if (existing) {
         return res
           .status(400)
-          .json({ success: false, message: "Tên món ăn đã tồn tại!" });
+          .json({ success: false, message: "Tên loại món ăn đã tồn tại!" });
       }
     }
-    const doc = await Food.create(req.body);
+    const doc = await FoodType.create(req.body);
     res.status(201).json({ success: true, data: doc });
   } catch (err) {
+    if (err.code === 11000) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Tên loại món ăn đã tồn tại!" });
+    }
     if (err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -68,27 +57,32 @@ export const update = async (req, res) => {
   try {
     const { name } = req.body;
     if (name) {
-      const existing = await Food.findOne({
+      const existing = await FoodType.findOne({
         name: { $regex: `^${escapeRegex(name.trim())}$`, $options: "i" },
         _id: { $ne: req.params.id },
       });
       if (existing) {
         return res
           .status(400)
-          .json({ success: false, message: "Tên món ăn đã tồn tại!" });
+          .json({ success: false, message: "Tên loại món ăn đã tồn tại!" });
       }
     }
-    const doc = await Food.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    const doc = await FoodType.findByIdAndUpdate(req.params.id, req.body, {
+      returnDocument: "after",
       runValidators: true,
     });
     if (!doc) {
       return res
         .status(404)
-        .json({ success: false, message: "Không tìm thấy món ăn!" });
+        .json({ success: false, message: "Không tìm thấy loại món ăn!" });
     }
     res.json({ success: true, data: doc });
   } catch (err) {
+    if (err.code === 11000) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Tên loại món ăn đã tồn tại!" });
+    }
     if (err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -98,25 +92,23 @@ export const update = async (req, res) => {
 
 export const remove = async (req, res) => {
   try {
-    const wedding = await Wedding.findOne({ "foods.food_id": req.params.id });
-    if (wedding) {
+    const foodUsing = await Food.findOne({ foodType: req.params.id });
+    if (foodUsing) {
       return res.status(400).json({
         success: false,
         message:
-          "Không thể xóa món ăn này vì đã có trong tiệc cưới \"" +
-          wedding.groom_name +
-          " & " +
-          wedding.bride_name +
+          'Không thể xóa loại món ăn này vì đang được sử dụng bởi món ăn "' +
+          foodUsing.name +
           '"!',
       });
     }
-    const doc = await Food.findByIdAndDelete(req.params.id);
+    const doc = await FoodType.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res
         .status(404)
-        .json({ success: false, message: "Không tìm thấy món ăn!" });
+        .json({ success: false, message: "Không tìm thấy loại món ăn!" });
     }
-    res.json({ success: true, message: "Đã xóa món ăn!" });
+    res.json({ success: true, message: "Đã xóa loại món ăn!" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

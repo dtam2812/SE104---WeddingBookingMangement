@@ -31,6 +31,7 @@ export default function Weddings() {
   const [hallTypes, setHallTypes] = useState([]);
   const [foods, setFoods] = useState([]);
   const [services, setServices] = useState([]);
+  const [shifts, setShifts] = useState([]);
   const [search, setSearch] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState("");
@@ -45,6 +46,17 @@ export default function Weddings() {
   const itemsPerPage = 8;
 
   const toDateInput = (d) => (d ? d.slice(0, 10) : "");
+
+  const getShiftName = (wedding) => {
+    if (wedding.shift) return wedding.shift;
+    if (wedding.shift_id) {
+      const found = shifts.find(
+        (s) => s.id === wedding.shift_id || s._id === wedding.shift_id,
+      );
+      return found ? found.name : wedding.shift_id;
+    }
+    return "-";
+  };
 
   const getTomorrow = () => {
     const d = new Date();
@@ -69,14 +81,8 @@ export default function Weddings() {
   const [foodInput, setFoodInput] = useState("");
   const [serviceInput, setServiceInput] = useState("");
   const [serviceQty, setServiceQty] = useState(1);
-  const [foodSearchKhaiVi, setFoodSearchKhaiVi] = useState("");
-  const [foodSearchMonChinh, setFoodSearchMonChinh] = useState("");
-  const [foodSearchTrangMieng, setFoodSearchTrangMieng] = useState("");
-  const [showFoodDropdown, setShowFoodDropdown] = useState({
-    khaiVi: false,
-    monChinh: false,
-    trangMieng: false,
-  });
+  const [foodSearchText, setFoodSearchText] = useState({});
+  const [showFoodDropdown, setShowFoodDropdown] = useState({});
   const [serviceSearchText, setServiceSearchText] = useState("");
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
 
@@ -84,6 +90,7 @@ export default function Weddings() {
   const [searchHallData, setSearchHallData] = useState({ date: "", shift: "" });
   const [availableHalls, setAvailableHalls] = useState(null);
 
+  const [foodTypes, setFoodTypes] = useState([]);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => {
@@ -92,6 +99,8 @@ export default function Weddings() {
     fetchHallTypes();
     fetchFoods();
     fetchServices();
+    fetchFoodTypes();
+    fetchShifts();
   }, []);
 
   const fetchWeddings = async () => {
@@ -112,6 +121,12 @@ export default function Weddings() {
     setHallTypes(res.data.data || []);
   };
 
+  const getFoodTypeName = (f) => {
+    const ft = f.foodType;
+    if (ft && typeof ft === "object") return ft.name;
+    return foodTypes.find((t) => t.id === ft || t._id === ft)?.name || ft;
+  };
+
   const fetchFoods = async () => {
     const res = await axios.get("/api/foods");
     setFoods(res.data.data || []);
@@ -120,6 +135,16 @@ export default function Weddings() {
   const fetchServices = async () => {
     const res = await axios.get("/api/services");
     setServices(res.data.data || []);
+  };
+
+  const fetchShifts = async () => {
+    const res = await axios.get("/api/shifts");
+    setShifts(res.data.data || []);
+  };
+
+  const fetchFoodTypes = async () => {
+    const res = await axios.get("/api/food-types");
+    setFoodTypes(res.data.data || []);
   };
 
   const handleSearchHall = async (e) => {
@@ -137,32 +162,30 @@ export default function Weddings() {
       return;
     }
     try {
-      // ── Validate deposit <= tổng tiệc ──────────────────────────────────────
+      // ── Validate foodPerTable >= hall min_price ─────────────────────────
       const t = Number(formData.table_count) || 0;
       const foodPerTable = selectedFoods.reduce(
         (s, f) => s + (f.booked_price || f.price || 0),
         0,
       );
+      const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
+      const minPrice =
+        formData.hall_min_price != null && formData.hall_min_price !== ""
+          ? Number(formData.hall_min_price)
+          : selHall?.type_id?.min_price || 0;
+      if (minPrice > 0 && foodPerTable > 0 && foodPerTable < minPrice) {
+        toast.error(
+          `Tổng giá món ăn mỗi bàn (${foodPerTable.toLocaleString("vi-VN")} đ) phải đạt tối thiểu ${minPrice.toLocaleString("vi-VN")} đ theo loại sảnh!`,
+        );
+        return;
+      }
+
       const foodTotal = foodPerTable * t;
       const serviceTotal = selectedServices.reduce(
         (s, sv) => s + (sv.booked_price || sv.price || 0) * (sv.quantity || 1),
         0,
       );
-      const selHall = halls.find((h) => h.id.toString() === formData.hall_id);
-
-      let pricePerTable = 0;
-      if (
-        formData.hall_min_price !== undefined &&
-        formData.hall_min_price !== null &&
-        formData.hall_min_price !== ""
-      ) {
-        pricePerTable = Number(formData.hall_min_price);
-      } else {
-        pricePerTable = selHall?.type_id?.min_price || 0;
-      }
-
-      const hallTotal = pricePerTable * t;
-      const total = foodTotal + serviceTotal + hallTotal;
+      const total = foodTotal + serviceTotal;
       const deposit = Number(formData.deposit) || 0;
 
       if (total > 0 && deposit > total) {
@@ -193,12 +216,13 @@ export default function Weddings() {
 
   const handleEdit = (wedding) => {
     setEditingId(wedding.id);
+    const shiftName = wedding.shift || getShiftName(wedding);
     setFormData({
       groom_name: wedding.groom_name,
       bride_name: wedding.bride_name,
       phone: wedding.phone,
       wedding_date: toDateInput(wedding.wedding_date),
-      shift: wedding.shift,
+      shift: shiftName,
       hall_id: wedding.hall_id ? wedding.hall_id.toString() : "",
       table_count: wedding.table_count.toString(),
       reserve_table_count: wedding.reserve_table_count.toString(),
@@ -262,15 +286,15 @@ export default function Weddings() {
 
   const getFoodType = (foodId) => {
     const found = foods.find((f) => f.id === foodId || f.id === foodId);
-    return found?.foodType;
+    return found ? getFoodTypeName(found) : undefined;
   };
 
   const selectedFoodsByType = (type) =>
     selectedFoods.filter((sf) => {
-      const ft = foods.find(
-        (f) => f.id === sf.food_id || f.id === sf.id,
-      )?.foodType;
-      return ft === type;
+      const f = foods.find(
+        (ff) => ff.id === sf.food_id || ff.id === sf.id,
+      );
+      return f && getFoodTypeName(f) === type;
     });
 
   const addServiceItem = (service) => {
@@ -336,22 +360,16 @@ export default function Weddings() {
   // Tính tổng tiền tiệc
   const calcTotal = (wedding) => {
     if (!wedding) return 0;
-    const foodTotal = (wedding.foods || []).reduce(
+    const foodPerTable = (wedding.foods || []).reduce(
       (sum, f) => sum + (f.booked_price || f.price || 0),
       0,
     );
+    const foodTotal = foodPerTable * (wedding.table_count || 0);
     const serviceTotal = (wedding.services || []).reduce(
       (sum, s) => sum + (s.booked_price || s.price || 0) * (s.quantity || 1),
       0,
     );
-    const tableTotal = (wedding.table_count || 0) * foodTotal;
-    const selHall = halls.find(
-      (h) => h.id.toString() === wedding.hall_id?.toString(),
-    );
-    // type_id đã được populate → chứa { _id, name, min_price }
-    const hallTotal =
-      (selHall?.type_id?.min_price || 0) * (wedding.table_count || 0);
-    return serviceTotal + tableTotal + hallTotal;
+    return foodTotal + serviceTotal;
   };
 
   return (
@@ -488,7 +506,7 @@ export default function Weddings() {
                   {formatDateVN(wedding.wedding_date)}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {wedding.shift}
+                  {getShiftName(wedding)}
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
                   {wedding.table_count}
@@ -544,22 +562,18 @@ export default function Weddings() {
                     >
                       Xem
                     </button>
-                    {user?.role === "admin" && (
-                      <>
-                        <button
-                          onClick={() => handleEdit(wedding)}
-                          className="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          onClick={() => handleDelete(wedding.id)}
-                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
-                        >
-                          Xóa
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => handleEdit(wedding)}
+                      className="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => handleDelete(wedding.id)}
+                      className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
+                    >
+                      Xóa
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -721,8 +735,8 @@ export default function Weddings() {
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     >
                       <option value="">Chọn ca</option>
-                      {["Trưa", "Tối"]
-                        .filter((shift) => {
+                      {shifts
+                        .filter((s) => {
                           if (!formData.hall_id || !formData.wedding_date)
                             return true;
                           return !weddings.some(
@@ -731,13 +745,13 @@ export default function Weddings() {
                               String(w.id) !== String(editingId) &&
                               w.wedding_date?.slice(0, 10) ===
                                 formData.wedding_date &&
-                              w.shift === shift &&
+                              w.shift === s.name &&
                               w.status !== "da_huy",
                           );
                         })
-                        .map((shift) => (
-                          <option key={shift} value={shift}>
-                            {shift}
+                        .map((s) => (
+                          <option key={s.id || s._id} value={s.name}>
+                            {s.name}
                           </option>
                         ))}
                     </select>
@@ -820,335 +834,81 @@ export default function Weddings() {
                     Thực đơn
                   </h3>
 
-                  {/* Khai vị */}
-                  <div className="mb-4 relative">
-                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                      Khai vị
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Gõ để tìm món khai vị..."
-                      value={foodSearchKhaiVi}
-                      onChange={(e) => {
-                        setFoodSearchKhaiVi(e.target.value);
-                        setShowFoodDropdown((p) => ({ ...p, khaiVi: true }));
-                      }}
-                      onFocus={() =>
-                        setShowFoodDropdown((p) => ({ ...p, khaiVi: true }))
-                      }
-                      onBlur={() =>
-                        setTimeout(
-                          () =>
-                            setShowFoodDropdown((p) => ({
-                              ...p,
-                              khaiVi: false,
-                            })),
-                          200,
-                        )
-                      }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                    />
-                    {showFoodDropdown.khaiVi && (
-                      <div className="absolute z-10 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
-                        {foods
-                          .filter((f) => f.foodType === "Khai vị")
-                          .filter((f) =>
-                            f.name
-                              .toLowerCase()
-                              .includes(foodSearchKhaiVi.toLowerCase()),
-                          )
-                          .filter(
-                            (f) =>
-                              !selectedFoods.find(
-                                (sf) => sf.food_id === f.id || sf.id === f.id,
-                              ),
-                          )
-                          .map((f) => (
-                            <div
-                              key={f.id}
-                              onClick={() => {
-                                addFoodItem(f);
-                                setFoodSearchKhaiVi("");
-                                setShowFoodDropdown((p) => ({
-                                  ...p,
-                                  khaiVi: false,
-                                }));
-                              }}
-                              className="px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between"
-                            >
-                              <span>{f.name}</span>
-                              <span className="text-emerald-600 font-medium">
-                                {f.price.toLocaleString("vi-VN")} đ
-                              </span>
+                  {(foodTypes.length > 0 ? foodTypes : [{ id: "khaiVi", name: "Khai vị" }, { id: "monChinh", name: "Món chính" }, { id: "trangMieng", name: "Tráng miệng" }]).map((ft) => {
+                    const typeName = ft.name || ft;
+                    const typeKey = ft.id || typeName.toLowerCase().replace(/ /g, '');
+                    const currentSearch = foodSearchText[typeKey] || '';
+                    const setCurrentSearch = (v) => setFoodSearchText(p => ({ ...p, [typeKey]: v }));
+                    const currentShow = showFoodDropdown[typeKey] || false;
+                    const setCurrentShow = (v) => setShowFoodDropdown(p => ({ ...p, [typeKey]: v }));
+
+                    return (
+                      <div key={typeName}>
+                        <div className="mb-4 relative">
+                          <label className="block text-sm font-medium text-slate-600 mb-1">{typeName}</label>
+                          <input
+                            type="text"
+                            placeholder={`Gõ để tìm ${typeName.toLowerCase()}...`}
+                            value={currentSearch}
+                            onChange={(e) => {
+                              setCurrentSearch(e.target.value);
+                              setCurrentShow(true);
+                            }}
+                            onFocus={() => setCurrentShow(true)}
+                            onBlur={() => setTimeout(() => setCurrentShow(false), 200)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                          />
+                          {currentShow && (
+                            <div className="absolute z-10 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
+                              {foods
+                                .filter((f) => f.status !== "inactive")
+                                .filter((f) => getFoodTypeName(f) === typeName)
+                                .filter((f) =>
+                                  f.name.toLowerCase().includes(currentSearch.toLowerCase()),
+                                )
+                                .filter((f) =>
+                                  !selectedFoods.find((sf) => sf.food_id === f.id || sf.id === f.id),
+                                )
+                                .map((f) => (
+                                  <div
+                                    key={f.id}
+                                    onClick={() => {
+                                      addFoodItem(f);
+                                      setCurrentSearch("");
+                                      setCurrentShow(false);
+                                    }}
+                                    className="px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between"
+                                  >
+                                    <span>{f.name}</span>
+                                    <span className="text-emerald-600 font-medium">{f.price.toLocaleString("vi-VN")} đ</span>
+                                  </div>
+                                ))}
+                              {foods.filter(
+                                (f) => getFoodTypeName(f) === typeName && !selectedFoods.find((sf) => sf.food_id === f.id || sf.id === f.id),
+                              ).length === 0 && (
+                                <div className="px-4 py-2.5 text-slate-400 text-sm">Không có {typeName.toLowerCase()}</div>
+                              )}
                             </div>
-                          ))}
-                        {foods.filter(
-                          (f) =>
-                            f.foodType === "Khai vị" &&
-                            !selectedFoods.find(
-                              (sf) => sf.food_id === f.id || sf.id === f.id,
-                            ),
-                        ).length === 0 && (
-                          <div className="px-4 py-2.5 text-slate-400 text-sm">
-                            Không có món khai vị
+                          )}
+                        </div>
+                        {selectedFoodsByType(typeName).length > 0 && (
+                          <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                            <ul className="space-y-2">
+                              {selectedFoodsByType(typeName).map((f) => (
+                                <li key={f.food_id || f.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                                  <span className="font-medium text-slate-800">{f.name}</span>
+                                  <div className="flex items-center gap-4">
+                                    <span className="text-emerald-600 font-medium">{(f.booked_price || f.price).toLocaleString("vi-VN")} đ</span>
+                                    <button type="button" onClick={() => removeSelectedFood(f.food_id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-
-                  {selectedFoodsByType("Khai vị").length > 0 && (
-                    <div className="bg-slate-50 rounded-xl p-4 mb-4">
-                      <ul className="space-y-2">
-                        {selectedFoodsByType("Khai vị").map((f) => (
-                          <li
-                            key={f.food_id || f.id}
-                            className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm"
-                          >
-                            <span className="font-medium text-slate-800">
-                              {f.name}
-                            </span>
-                            <div className="flex items-center gap-4">
-                              <span className="text-emerald-600 font-medium">
-                                {(f.booked_price || f.price).toLocaleString(
-                                  "vi-VN",
-                                )}{" "}
-                                đ
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeSelectedFood(f.food_id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Món chính */}
-                  <div className="mb-4 relative">
-                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                      Món chính
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Gõ để tìm món chính..."
-                      value={foodSearchMonChinh}
-                      onChange={(e) => {
-                        setFoodSearchMonChinh(e.target.value);
-                        setShowFoodDropdown((p) => ({ ...p, monChinh: true }));
-                      }}
-                      onFocus={() =>
-                        setShowFoodDropdown((p) => ({ ...p, monChinh: true }))
-                      }
-                      onBlur={() =>
-                        setTimeout(
-                          () =>
-                            setShowFoodDropdown((p) => ({
-                              ...p,
-                              monChinh: false,
-                            })),
-                          200,
-                        )
-                      }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                    />
-                    {showFoodDropdown.monChinh && (
-                      <div className="absolute z-10 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
-                        {foods
-                          .filter((f) => f.foodType === "Món chính")
-                          .filter((f) =>
-                            f.name
-                              .toLowerCase()
-                              .includes(foodSearchMonChinh.toLowerCase()),
-                          )
-                          .filter(
-                            (f) =>
-                              !selectedFoods.find(
-                                (sf) => sf.food_id === f.id || sf.id === f.id,
-                              ),
-                          )
-                          .map((f) => (
-                            <div
-                              key={f.id}
-                              onClick={() => {
-                                addFoodItem(f);
-                                setFoodSearchMonChinh("");
-                                setShowFoodDropdown((p) => ({
-                                  ...p,
-                                  monChinh: false,
-                                }));
-                              }}
-                              className="px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between"
-                            >
-                              <span>{f.name}</span>
-                              <span className="text-emerald-600 font-medium">
-                                {f.price.toLocaleString("vi-VN")} đ
-                              </span>
-                            </div>
-                          ))}
-                        {foods.filter(
-                          (f) =>
-                            f.foodType === "Món chính" &&
-                            !selectedFoods.find(
-                              (sf) => sf.food_id === f.id || sf.id === f.id,
-                            ),
-                        ).length === 0 && (
-                          <div className="px-4 py-2.5 text-slate-400 text-sm">
-                            Không có món chính
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedFoodsByType("Món chính").length > 0 && (
-                    <div className="bg-slate-50 rounded-xl p-4 mb-4">
-                      <ul className="space-y-2">
-                        {selectedFoodsByType("Món chính").map((f) => (
-                          <li
-                            key={f.food_id || f.id}
-                            className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm"
-                          >
-                            <span className="font-medium text-slate-800">
-                              {f.name}
-                            </span>
-                            <div className="flex items-center gap-4">
-                              <span className="text-emerald-600 font-medium">
-                                {(f.booked_price || f.price).toLocaleString(
-                                  "vi-VN",
-                                )}{" "}
-                                đ
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeSelectedFood(f.food_id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Tráng miệng */}
-                  <div className="mb-4 relative">
-                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                      Tráng miệng
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Gõ để tìm món tráng miệng..."
-                      value={foodSearchTrangMieng}
-                      onChange={(e) => {
-                        setFoodSearchTrangMieng(e.target.value);
-                        setShowFoodDropdown((p) => ({
-                          ...p,
-                          trangMieng: true,
-                        }));
-                      }}
-                      onFocus={() =>
-                        setShowFoodDropdown((p) => ({ ...p, trangMieng: true }))
-                      }
-                      onBlur={() =>
-                        setTimeout(
-                          () =>
-                            setShowFoodDropdown((p) => ({
-                              ...p,
-                              trangMieng: false,
-                            })),
-                          200,
-                        )
-                      }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                    />
-                    {showFoodDropdown.trangMieng && (
-                      <div className="absolute z-10 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
-                        {foods
-                          .filter((f) => f.foodType === "Tráng miệng")
-                          .filter((f) =>
-                            f.name
-                              .toLowerCase()
-                              .includes(foodSearchTrangMieng.toLowerCase()),
-                          )
-                          .filter(
-                            (f) =>
-                              !selectedFoods.find(
-                                (sf) => sf.food_id === f.id || sf.id === f.id,
-                              ),
-                          )
-                          .map((f) => (
-                            <div
-                              key={f.id}
-                              onClick={() => {
-                                addFoodItem(f);
-                                setFoodSearchTrangMieng("");
-                                setShowFoodDropdown((p) => ({
-                                  ...p,
-                                  trangMieng: false,
-                                }));
-                              }}
-                              className="px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between"
-                            >
-                              <span>{f.name}</span>
-                              <span className="text-emerald-600 font-medium">
-                                {f.price.toLocaleString("vi-VN")} đ
-                              </span>
-                            </div>
-                          ))}
-                        {foods.filter(
-                          (f) =>
-                            f.foodType === "Tráng miệng" &&
-                            !selectedFoods.find(
-                              (sf) => sf.food_id === f.id || sf.id === f.id,
-                            ),
-                        ).length === 0 && (
-                          <div className="px-4 py-2.5 text-slate-400 text-sm">
-                            Không có món tráng miệng
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedFoodsByType("Tráng miệng").length > 0 && (
-                    <div className="bg-slate-50 rounded-xl p-4 mb-4">
-                      <ul className="space-y-2">
-                        {selectedFoodsByType("Tráng miệng").map((f) => (
-                          <li
-                            key={f.food_id || f.id}
-                            className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 shadow-sm"
-                          >
-                            <span className="font-medium text-slate-800">
-                              {f.name}
-                            </span>
-                            <div className="flex items-center gap-4">
-                              <span className="text-emerald-600 font-medium">
-                                {(f.booked_price || f.price).toLocaleString(
-                                  "vi-VN",
-                                )}{" "}
-                                đ
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeSelectedFood(f.food_id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
 
                 {/* Dịch vụ */}
@@ -1175,6 +935,7 @@ export default function Weddings() {
                       {showServiceDropdown && (
                         <div className="absolute z-10 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
                           {services
+                            .filter((s) => s.status !== "inactive")
                             .filter(
                               (s) =>
                                 !selectedServices.find(
@@ -1298,6 +1059,14 @@ export default function Weddings() {
                       (s, f) => s + (f.booked_price || f.price || 0),
                       0,
                     );
+                    const selHall = halls.find(
+                      (h) => h.id.toString() === formData.hall_id,
+                    );
+                    const minPrice =
+                      formData.hall_min_price != null && formData.hall_min_price !== ""
+                        ? Number(formData.hall_min_price)
+                        : selHall?.type_id?.min_price || 0;
+                    const minPriceMet = minPrice === 0 || foodPerTable === 0 || foodPerTable >= minPrice;
                     const foodTotal = foodPerTable * t;
                     const serviceTotal = selectedServices.reduce(
                       (s, sv) =>
@@ -1305,23 +1074,7 @@ export default function Weddings() {
                         (sv.booked_price || sv.price || 0) * (sv.quantity || 1),
                       0,
                     );
-                    const selHall = halls.find(
-                      (h) => h.id.toString() === formData.hall_id,
-                    );
-
-                    let pricePerTable = 0;
-                    if (
-                      formData.hall_min_price !== undefined &&
-                      formData.hall_min_price !== null &&
-                      formData.hall_min_price !== ""
-                    ) {
-                      pricePerTable = Number(formData.hall_min_price);
-                    } else {
-                      pricePerTable = selHall?.type_id?.min_price || 0;
-                    }
-
-                    const hallTotal = pricePerTable * t;
-                    const total = foodTotal + serviceTotal + hallTotal;
+                    const total = foodTotal + serviceTotal;
                     const deposit = Number(formData.deposit) || 0;
                     return (
                       <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
@@ -1337,15 +1090,16 @@ export default function Weddings() {
                             {serviceTotal.toLocaleString("vi-VN")} đ
                           </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-indigo-700">
-                            Tiền bàn ({pricePerTable.toLocaleString("vi-VN")} đ
-                            × {t} bàn)
-                          </span>
-                          <span className="font-semibold text-indigo-900">
-                            {hallTotal.toLocaleString("vi-VN")} đ
-                          </span>
-                        </div>
+                        {!minPriceMet && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-600">
+                            ⚠ Tổng giá món/bàn ({foodPerTable.toLocaleString("vi-VN")} đ) chưa đạt tối thiểu {minPrice.toLocaleString("vi-VN")} đ
+                          </div>
+                        )}
+                        {minPrice > 0 && foodPerTable > 0 && minPriceMet && (
+                          <div className="text-emerald-600 text-xs">
+                            ✓ Giá mỗi bàn ({foodPerTable.toLocaleString("vi-VN")} đ) đạt tối thiểu {minPrice.toLocaleString("vi-VN")} đ
+                          </div>
+                        )}
                         <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
                           <span className="text-indigo-800">Tổng tiệc</span>
                           <span className="text-indigo-900">
@@ -1454,7 +1208,7 @@ export default function Weddings() {
                       label: "Ngày tiệc",
                       value: formatDateVN(viewingWedding.wedding_date),
                     },
-                    { label: "Ca", value: viewingWedding.shift },
+                    { label: "Ca", value: getShiftName(viewingWedding) },
                     { label: "Sảnh", value: viewingWedding.hall_name },
                     {
                       label: "Số bàn",
@@ -1502,12 +1256,12 @@ export default function Weddings() {
                 </h3>
                 {viewingWedding.foods && viewingWedding.foods.length > 0 ? (
                   <div className="space-y-4">
-                    {["Khai vị", "Món chính", "Tráng miệng"].map((type) => {
+                    {(foodTypes.length > 0 ? foodTypes.map(t => t.name) : ["Khai vị", "Món chính", "Tráng miệng"]).map((type) => {
                       const items = viewingWedding.foods.filter((f) => {
-                        const ft = foods.find(
-                          (ff) => ff.id === f.food_id || ff.id === f.id,
-                        )?.foodType;
-                        return ft === type;
+                        const ff = foods.find(
+                          (fnd) => fnd.id === f.food_id || fnd.id === f.id,
+                        );
+                        return ff && getFoodTypeName(ff) === type;
                       });
                       if (items.length === 0) return null;
                       return (
@@ -1621,17 +1375,7 @@ export default function Weddings() {
                       (sv.booked_price || sv.price || 0) * (sv.quantity || 1),
                     0,
                   );
-                  const selHall = halls.find(
-                    (h) =>
-                      h.id.toString() === viewingWedding.hall_id?.toString(),
-                  );
-                  const pricePerTable =
-                    viewingWedding.hall_min_price != null &&
-                    viewingWedding.hall_min_price !== ""
-                      ? Number(viewingWedding.hall_min_price)
-                      : selHall?.type_id?.min_price || 0;
-                  const hallTotal = pricePerTable * t;
-                  const total = foodTotal + serviceTotal + hallTotal;
+                  const total = foodTotal + serviceTotal;
                   const deposit = Number(viewingWedding.deposit) || 0;
 
                   return (
@@ -1646,15 +1390,6 @@ export default function Weddings() {
                         <span className="text-indigo-700">Tiền dịch vụ</span>
                         <span className="font-semibold text-indigo-900">
                           {serviceTotal.toLocaleString("vi-VN")} đ
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-indigo-700">
-                          Tiền bàn ({pricePerTable.toLocaleString("vi-VN")} đ ×{" "}
-                          {t} bàn)
-                        </span>
-                        <span className="font-semibold text-indigo-900">
-                          {hallTotal.toLocaleString("vi-VN")} đ
                         </span>
                       </div>
                       <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
@@ -1751,8 +1486,9 @@ export default function Weddings() {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                   >
                     <option value="">Chọn ca</option>
-                    <option value="Trưa">Trưa</option>
-                    <option value="Tối">Tối</option>
+                    {shifts.map((s) => (
+                      <option key={s.id || s._id} value={s.name}>{s.name}</option>
+                    ))}
                   </select>
                 </div>
                 <button

@@ -30,11 +30,20 @@ const DIRECTION_LABEL_NUMBER = {
   desc: { text: "Giảm dần", icon: <ArrowDown size={13} /> },
 };
 
+const statusLabel = { active: "Đang vận hành", inactive: "Ngừng cung cấp" };
+const statusStyle = {
+  active: "bg-emerald-50 text-emerald-600 border border-emerald-200",
+  inactive: "bg-red-50 text-red-500 border border-red-200",
+};
+
 // --- Filter config ---
-const FOOD_TYPES = ["Khai vị", "Món chính", "Tráng miệng", "Đồ uống"];
 const FILTER_OPTIONS = [
   { value: "all", label: "Tất cả loại" },
-  ...FOOD_TYPES.map((t) => ({ value: t, label: t })),
+];
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "active", label: "Đang vận hành" },
+  { value: "inactive", label: "Ngừng cung cấp" },
 ];
 
 // --- Pagination với dấu "..." ---
@@ -52,6 +61,7 @@ const getPageNumbers = (current, total) => {
 
 export default function Foods() {
   const [foods, setFoods] = useState([]);
+  const [foodTypes, setFoodTypes] = useState([]);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -61,6 +71,7 @@ export default function Foods() {
     name: "",
     price: "",
     foodType: "Món chính",
+    status: "active",
   });
   const [error, setError] = useState("");
 
@@ -72,11 +83,20 @@ export default function Foods() {
   // --- Filter state ---
   const [filterType, setFilterType] = useState("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatusOpen, setFilterStatusOpen] = useState(false);
   const filterRef = useRef(null);
+  const filterStatusRef = useRef(null);
 
   useEffect(() => {
     fetchFoods();
+    fetchFoodTypes();
   }, []);
+
+  const fetchFoodTypes = async () => {
+    const res = await axios.get("/api/food-types");
+    setFoodTypes(res.data.data || []);
+  };
 
   useEffect(() => {
     const handler = (e) => {
@@ -84,6 +104,8 @@ export default function Foods() {
         setSortOpen(false);
       if (filterRef.current && !filterRef.current.contains(e.target))
         setFilterOpen(false);
+      if (filterStatusRef.current && !filterStatusRef.current.contains(e.target))
+        setFilterStatusOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -117,7 +139,8 @@ export default function Foods() {
     setFormData({
       name: food.name,
       price: food.price.toString(),
-      foodType: food.foodType || "Món chính",
+      foodType: food.foodType?._id || food.foodType || "",
+      status: food.status || "active",
     });
     setIsModalOpen(true);
   };
@@ -138,7 +161,7 @@ export default function Foods() {
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ name: "", price: "", foodType: "Món chính" });
+    setFormData({ name: "", price: "", foodType: foodTypes.length > 0 ? foodTypes[0].id : "", status: "active" });
     setIsModalOpen(true);
   };
 
@@ -157,6 +180,11 @@ export default function Foods() {
     setFilterOpen(false);
     setCurrentPage(1);
   };
+  const handleSelectStatusFilter = (value) => {
+    setFilterStatus(value);
+    setFilterStatusOpen(false);
+    setCurrentPage(1);
+  };
 
   // Labels
   const activeSortOption = SORT_OPTIONS.find((o) => o.key === sortConfig.key);
@@ -167,9 +195,11 @@ export default function Foods() {
   const activeFilterOption = FILTER_OPTIONS.find((o) => o.value === filterType);
 
   // --- Lọc + Sort + Phân trang ---
+  const FOOD_TYPES = foodTypes.map((t) => t.name);
   const filteredFoods = foods
     .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-    .filter((f) => filterType === "all" || f.foodType === filterType);
+    .filter((f) => filterType === "all" || f.foodType?.name === filterType)
+    .filter((f) => filterStatus === "all" || f.status === filterStatus);
 
   const sortedFoods = [...filteredFoods].sort((a, b) => {
     if (!sortConfig.key) return 0;
@@ -251,12 +281,12 @@ export default function Foods() {
                     Lọc theo loại
                   </p>
                 </div>
-                {FILTER_OPTIONS.map((opt) => {
+                {[{ value: "all", label: "Tất cả loại" }, ...foodTypes.map((t) => ({ value: t.name, label: t.name }))].map((opt) => {
                   const isActive = filterType === opt.value;
                   const count =
                     opt.value === "all"
                       ? baseForCount.length
-                      : baseForCount.filter((f) => f.foodType === opt.value)
+                      : baseForCount.filter((f) => f.foodType?.name === opt.value)
                           .length;
                   return (
                     <button
@@ -280,6 +310,46 @@ export default function Foods() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* --- STATUS FILTER --- */}
+          <div className="relative" ref={filterStatusRef}>
+            <button
+              onClick={() => setFilterStatusOpen((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap ${
+                filterStatus !== "all"
+                  ? "bg-amber-50 border-amber-300 text-amber-700"
+                  : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Filter size={15} />
+              {filterStatus !== "all"
+                ? STATUS_FILTER_OPTIONS.find(o => o.value === filterStatus)?.label
+                : "Lọc trạng thái"}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${filterStatusOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {filterStatusOpen && (
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Lọc theo trạng thái</p>
+                </div>
+                {STATUS_FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleSelectStatusFilter(opt.value)}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                      filterStatus === opt.value ? "bg-amber-50 text-amber-700 font-medium" : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {filterStatus === opt.value && <Check size={13} className="text-amber-500" />}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -394,6 +464,7 @@ export default function Foods() {
               <th className="py-4 px-4 font-semibold">TÊN MÓN ĂN</th>
               <th className="py-4 px-4 font-semibold">ĐƠN GIÁ</th>
               <th className="py-4 px-4 font-semibold">LOẠI</th>
+              <th className="py-4 px-4 font-semibold">TRẠNG THÁI</th>
               <th className="py-4 px-4 font-semibold text-center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
@@ -413,7 +484,32 @@ export default function Foods() {
                   {food.price.toLocaleString("vi-VN")} đ
                 </td>
                 <td className="py-4 px-4 text-slate-600 whitespace-nowrap">
-                  {food.foodType || "-"}
+                  {(() => {
+                    const ft = food.foodType;
+                    if (ft && typeof ft === "object") return ft.name || "-";
+                    const found = foodTypes.find((t) => t.id === ft || t._id === ft);
+                    return found?.name || ft || "-";
+                  })()}
+                </td>
+                <td className="py-4 px-4 whitespace-nowrap">
+                  <select
+                    value={food.status || "active"}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      setFoods((prev) => prev.map((f) => f.id === food.id ? { ...f, status: newStatus } : f));
+                      try {
+                        await axios.put(`/api/foods/${food.id}`, { status: newStatus }, authHeader());
+                        toast.success(`Cập nhật trạng thái → ${statusLabel[newStatus]}`);
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || "Lỗi cập nhật trạng thái!");
+                        fetchFoods();
+                      }
+                    }}
+                    className={`text-xs font-medium rounded px-1 py-1 border ${statusStyle[food.status] || statusStyle.active}`}
+                  >
+                    <option value="active" className="text-emerald-600 bg-emerald-50">Đang vận hành</option>
+                    <option value="inactive" className="text-red-500 bg-red-50">Ngừng cung cấp</option>
+                  </select>
                 </td>
                 <td className="py-4 px-4 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
@@ -435,7 +531,7 @@ export default function Foods() {
             ))}
             {currentFoods.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-500">
+                <td colSpan={6} className="py-8 text-center text-slate-500">
                   Không tìm thấy món ăn nào.
                 </td>
               </tr>
@@ -549,11 +645,22 @@ export default function Foods() {
                   }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
                 >
-                  {FOOD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {foodTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                >
+                  <option value="active" className="text-emerald-600 bg-emerald-50">Đang vận hành</option>
+                  <option value="inactive" className="text-red-500 bg-red-50">Ngừng cung cấp</option>
                 </select>
               </div>
               <div className="flex justify-center gap-3 pt-4">

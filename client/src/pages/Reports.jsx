@@ -38,6 +38,7 @@ export default function Reports() {
   const [reportType, setReportType] = useState("all");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [day, setDay] = useState("");
   const [reportData, setReportData] = useState([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalDebt, setTotalDebt] = useState(0);
@@ -58,6 +59,7 @@ export default function Reports() {
   }, []);
 
   const getReportParams = () => {
+    if (reportType === "day") return { date: day };
     if (reportType === "month") return { month, year };
     if (reportType === "year") return { year };
     return { type: "all" };
@@ -118,6 +120,8 @@ export default function Reports() {
   const getExportFileName = () => {
     const now = new Date();
     const dateStr = `${now.getDate()}${now.getMonth() + 1}${now.getFullYear()}`;
+    if (reportType === "day")
+      return `BaoCao_Ngay${day?.replace(/-/g, "")}_${dateStr}.xlsx`;
     if (reportType === "month")
       return `BaoCao_Thang${month}_${year}_${dateStr}.xlsx`;
     if (reportType === "year") return `BaoCao_Nam${year}_${dateStr}.xlsx`;
@@ -125,6 +129,11 @@ export default function Reports() {
   };
 
   const getReportTitle = () => {
+    if (reportType === "day") {
+      if (!day) return "BÁO CÁO DOANH THU";
+      const [y, m, d] = day.split("-");
+      return `BÁO CÁO DOANH THU NGÀY ${d}/${m}/${y}`;
+    }
     if (reportType === "month")
       return `BÁO CÁO DOANH THU THÁNG ${month}/${year}`;
     if (reportType === "year") return `BÁO CÁO DOANH THU NĂM ${year}`;
@@ -177,7 +186,12 @@ export default function Reports() {
 
     sheet1.mergeCells("A2:F2");
     const periodCell = sheet1.getCell("A2");
-    if (reportType === "month")
+    if (reportType === "day") {
+      if (day) {
+        const [y, m, d] = day.split("-");
+        periodCell.value = `Kỳ báo cáo: Ngày ${d}/${m}/${y}`;
+      } else periodCell.value = "Kỳ báo cáo: Theo ngày";
+    } else if (reportType === "month")
       periodCell.value = `Kỳ báo cáo: Tháng ${month}/${year}`;
     else if (reportType === "year")
       periodCell.value = `Kỳ báo cáo: Năm ${year}`;
@@ -512,10 +526,20 @@ export default function Reports() {
             onChange={(e) => setReportType(e.target.value)}
             className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
           >
+            <option value="day">Theo ngày</option>
             <option value="month">Theo tháng</option>
             <option value="year">Theo năm</option>
             <option value="all">Toàn thời gian</option>
           </select>
+
+          {reportType === "day" && (
+            <input
+              type="date"
+              value={day}
+              onChange={(e) => { setDay(e.target.value); }}
+              className="px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+            />
+          )}
 
           {reportType === "month" && (
             <>

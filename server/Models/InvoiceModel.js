@@ -26,6 +26,14 @@ const InvoiceSchema = new mongoose.Schema(
     late_days: { type: Number, default: 0, min: 0 },
     penalty_amount: { type: Number, default: 0, min: 0 },
 
+    extra_services: [
+      {
+        name: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 },
+        quantity: { type: Number, default: 1, min: 1 },
+      },
+    ],
+
     // ✅ NEW: whether to apply late-payment penalty for this invoice
     //         Penalty starts 1 day after the wedding date
     payment_due_date: { type: Date },

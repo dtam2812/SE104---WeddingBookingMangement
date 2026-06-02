@@ -13,6 +13,9 @@ import foodRoutes from "./Router/foodRoutes.js";
 import hallRoutes from "./Router/hallRoutes.js";
 import hallTypeRoutes from "./Router/hallTypeRoutes.js";
 import ruleRoutes from "./Router/ruleRoutes.js";
+import foodTypeRoutes from "./Router/foodTypeRoutes.js";
+import roleRoutes from "./Router/roleRoutes.js";
+import shiftRoutes from "./Router/shiftRoutes.js";
 
 async function startServer() {
   await connectDatabase();
@@ -37,6 +40,9 @@ async function startServer() {
   app.use("/api/halls", hallRoutes);
   app.use("/api/hall-types", hallTypeRoutes);
   app.use("/api/rules", ruleRoutes);
+  app.use("/api/food-types", foodTypeRoutes);
+  app.use("/api/roles", roleRoutes);
+  app.use("/api/shifts", shiftRoutes);
 
   app.use((req, res) => {
     res.status(404).json({

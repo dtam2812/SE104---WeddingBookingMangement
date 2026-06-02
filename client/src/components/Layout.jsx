@@ -15,6 +15,8 @@ import {
   Settings,
   LayoutDashboard,
   Layers,
+  Shield,
+  Clock,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -32,24 +34,46 @@ export default function Layout({ user, setUser }) {
     navigate("/login");
   };
 
-  const navItems = [
+  const PERM_MAP = {
+    "/": "dashboard",
+    "/accounts": "accounts",
+    "/invoices": "invoices",
+    "/weddings": "weddings",
+    "/halls": "halls",
+    "/hall-types": "hall-types",
+    "/foods": "foods",
+    "/food-types": "food-types",
+    "/services": "services",
+    "/rules": "rules",
+    "/shifts": "shifts",
+    "/roles": "roles",
+    "/reports": "reports",
+  };
+
+  const perms = user?.permissions;
+
+  const hasPerm = (path) => {
+    if (!perms || perms.length === 0) return true;
+    return perms.includes(PERM_MAP[path]);
+  };
+
+  const allItems = [
     { path: "/", icon: Home, label: "Trang Chủ" },
-    ...(user?.role === "admin"
-      ? [{ path: "/accounts", icon: User, label: "Tài Khoản" }]
-      : []),
+    { path: "/roles", icon: Shield, label: "Vai Trò" },
+    { path: "/accounts", icon: User, label: "Tài Khoản" },
     { path: "/invoices", icon: DollarSign, label: "Hóa Đơn" },
     { path: "/weddings", icon: Heart, label: "Tiệc Cưới" },
-    ...(user?.role === "admin"
-      ? [
-          { path: "/halls", icon: CalendarHeart, label: "Sảnh" },
-          { path: "/hall-types", icon: Layers, label: "Loại Sảnh" },
-          { path: "/foods", icon: Utensils, label: "Thực Đơn" },
-          { path: "/services", icon: ConciergeBell, label: "Dịch Vụ" },
-          { path: "/rules", icon: BookOpenCheck, label: "Quy Định" },
-          { path: "/reports", icon: FileBarChart, label: "Xem Báo Cáo" },
-        ]
-      : []),
+      { path: "/shifts", icon: Clock, label: "Ca" },
+    { path: "/halls", icon: CalendarHeart, label: "Sảnh" },
+    { path: "/hall-types", icon: Layers, label: "Loại Sảnh" },
+    { path: "/foods", icon: Utensils, label: "Thực Đơn" },
+    { path: "/food-types", icon: Layers, label: "Loại Món Ăn" },
+    { path: "/services", icon: ConciergeBell, label: "Dịch Vụ" },
+    { path: "/rules", icon: BookOpenCheck, label: "Quy Định" },
+    { path: "/reports", icon: FileBarChart, label: "Xem Báo Cáo" },
   ];
+
+  const navItems = allItems.filter((item) => hasPerm(item.path));
 
   return (
     <div className="flex min-h-screen bg-purple-50 font-sans text-purple-900">
