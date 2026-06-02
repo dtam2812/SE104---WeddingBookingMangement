@@ -358,31 +358,56 @@ export default function Services() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-6">
+        <div className="flex justify-center items-center gap-1 mt-6">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50 text-sm"
           >
             «
           </button>
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
-                currentPage === i + 1
-                  ? "bg-slate-800 text-white"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
+          {(() => {
+            const total = totalPages;
+            const current = currentPage;
+            const pages = [];
+            if (total <= 7) {
+              for (let i = 1; i <= total; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (current > 3) pages.push("...");
+              const start = Math.max(2, current - 1);
+              const end = Math.min(total - 1, current + 1);
+              for (let i = start; i <= end; i++) pages.push(i);
+              if (current < total - 2) pages.push("...");
+              pages.push(total);
+            }
+            return pages.map((page, i) =>
+              page === "..." ? (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 text-sm select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
+                    currentPage === page
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {page}
+                </button>
+              ),
+            );
+          })()}
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50 text-sm"
           >
             »
           </button>

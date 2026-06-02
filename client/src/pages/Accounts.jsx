@@ -47,8 +47,8 @@ export default function Accounts() {
     role: "staff",
     status: "active",
   });
-  const [error, setError] = useState("");
-  const [emailError, setEmailError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
@@ -61,17 +61,39 @@ export default function Accounts() {
     fetchAccounts();
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
+  const validate = () => {
+    const newErrors = {};
 
-    if (formData.email && !isValidEmail(formData.email)) {
-      setEmailError("Email không hợp lệ");
-      return;
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = "Vui lòng nhập họ tên";
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = "Vui lòng nhập tên tài khoản";
+    }
+
+    if (!editingId && !formData.password) {
+      newErrors.password = "Vui lòng nhập mật khẩu";
     }
 
     if (formData.phone && formData.phone.length !== 10) {
-      toast.error("Số điện thoại phải có đúng 10 chữ số!");
+      newErrors.phone = `Số điện thoại phải có đúng 9 số (${formData.phone.slice(1).length}/9)`;
+    }
+
+    if (formData.email && !isValidEmail(formData.email)) {
+      newErrors.email = "Email không hợp lệ";
+    }
+
+    return newErrors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setServerError("");
+
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -86,14 +108,14 @@ export default function Accounts() {
       setIsModalOpen(false);
       fetchAccounts();
     } catch (err) {
-      setError(err.response?.data?.message || "Có lỗi xảy ra!");
+      setServerError(err.response?.data?.message || "Có lỗi xảy ra!");
     }
   };
 
   const handleEdit = (acc) => {
     setEditingId(acc.id);
-    setEmailError("");
-    setError("");
+    setErrors({});
+    setServerError("");
     setFormData({
       username: acc.username,
       password: "",
@@ -122,8 +144,8 @@ export default function Accounts() {
 
   const openNewModal = () => {
     setEditingId(null);
-    setEmailError("");
-    setError("");
+    setErrors({});
+    setServerError("");
     setFormData({
       username: "",
       password: "",
@@ -149,6 +171,13 @@ export default function Accounts() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  const inputClass = (field) =>
+    `w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-sm ${
+      errors[field]
+        ? "border-red-400 focus:border-red-400"
+        : "border-slate-300 focus:border-indigo-400"
+    }`;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -287,31 +316,56 @@ export default function Accounts() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-6">
+        <div className="flex justify-center items-center gap-1 mt-6">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50 text-sm"
           >
             «
           </button>
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
-                currentPage === i + 1
-                  ? "bg-slate-800 text-white"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
+          {(() => {
+            const total = totalPages;
+            const current = currentPage;
+            const pages = [];
+            if (total <= 7) {
+              for (let i = 1; i <= total; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (current > 3) pages.push("...");
+              const start = Math.max(2, current - 1);
+              const end = Math.min(total - 1, current + 1);
+              for (let i = start; i <= end; i++) pages.push(i);
+              if (current < total - 2) pages.push("...");
+              pages.push(total);
+            }
+            return pages.map((page, i) =>
+              page === "..." ? (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 text-sm select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
+                    currentPage === page
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {page}
+                </button>
+              ),
+            );
+          })()}
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-50 text-sm"
           >
             »
           </button>
@@ -330,9 +384,9 @@ export default function Accounts() {
               onSubmit={handleSubmit}
               className="p-6 pt-0 space-y-4 max-h-[75vh] overflow-y-auto"
             >
-              {error && (
+              {serverError && (
                 <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center">
-                  {error}
+                  {serverError}
                 </div>
               )}
 
@@ -343,13 +397,19 @@ export default function Accounts() {
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.full_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, full_name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  onChange={(e) => {
+                    setFormData({ ...formData, full_name: e.target.value });
+                    if (errors.full_name)
+                      setErrors({ ...errors, full_name: "" });
+                  }}
+                  className={inputClass("full_name")}
                 />
+                {errors.full_name && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.full_name}
+                  </p>
+                )}
               </div>
 
               {/* SĐT */}
@@ -357,8 +417,10 @@ export default function Accounts() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   SĐT:
                 </label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 py-2 bg-slate-100 border border-r-0 border-slate-300 rounded-l-lg text-sm text-slate-600 font-medium whitespace-nowrap">
+                <div
+                  className={`flex rounded-lg border overflow-hidden ${errors.phone ? "border-red-400" : "border-slate-300"}`}
+                >
+                  <span className="inline-flex items-center px-3 py-2 bg-slate-100 border-r border-slate-300 text-sm text-slate-600 font-medium whitespace-nowrap">
                     🇻🇳 +84
                   </span>
                   <input
@@ -369,17 +431,14 @@ export default function Accounts() {
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "").slice(0, 9);
                       setFormData({ ...formData, phone: "0" + val });
+                      if (errors.phone) setErrors({ ...errors, phone: "" });
                     }}
-                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-r-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                    className="flex-1 px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-sm"
                   />
                 </div>
-                {formData.phone &&
-                  formData.phone.length > 1 &&
-                  formData.phone.length < 10 && (
-                    <p className="text-xs text-red-500 mt-1">
-                      Vui lòng nhập đủ 9 số ({formData.phone.slice(1).length}/9)
-                    </p>
-                  )}
+                {errors.phone && (
+                  <p className="text-xs text-red-500 mt-1">{errors.phone}</p>
+                )}
               </div>
 
               {/* Tên tài khoản */}
@@ -389,14 +448,17 @@ export default function Accounts() {
                 </label>
                 <input
                   type="text"
-                  required
                   disabled={!!editingId}
                   value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm disabled:bg-slate-50 disabled:text-slate-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, username: e.target.value });
+                    if (errors.username) setErrors({ ...errors, username: "" });
+                  }}
+                  className={`${inputClass("username")} disabled:bg-slate-50 disabled:text-slate-500`}
                 />
+                {errors.username && (
+                  <p className="text-xs text-red-500 mt-1">{errors.username}</p>
+                )}
               </div>
 
               {/* Mật khẩu */}
@@ -411,13 +473,16 @@ export default function Accounts() {
                 </label>
                 <input
                   type="password"
-                  required={!editingId}
                   value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all text-sm"
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value });
+                    if (errors.password) setErrors({ ...errors, password: "" });
+                  }}
+                  className={inputClass("password")}
                 />
+                {errors.password && (
+                  <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+                )}
               </div>
 
               {/* Email */}
@@ -429,22 +494,13 @@ export default function Accounts() {
                   type="text"
                   value={formData.email}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    setFormData({ ...formData, email: val });
-                    if (val && !isValidEmail(val)) {
-                      setEmailError("Email không hợp lệ");
-                    } else {
-                      setEmailError("");
-                    }
+                    setFormData({ ...formData, email: e.target.value });
+                    if (errors.email) setErrors({ ...errors, email: "" });
                   }}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-sm ${
-                    emailError
-                      ? "border-red-400 focus:border-red-400"
-                      : "border-slate-300 focus:border-indigo-400"
-                  }`}
+                  className={inputClass("email")}
                 />
-                {emailError && (
-                  <p className="text-xs text-red-500 mt-1">{emailError}</p>
+                {errors.email && (
+                  <p className="text-xs text-red-500 mt-1">{errors.email}</p>
                 )}
               </div>
 
@@ -498,8 +554,7 @@ export default function Accounts() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!!emailError}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors text-sm"
                 >
                   Lưu
                 </button>

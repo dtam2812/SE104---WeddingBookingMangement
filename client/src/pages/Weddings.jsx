@@ -721,8 +721,25 @@ export default function Weddings() {
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                     >
                       <option value="">Chọn ca</option>
-                      <option value="Trưa">Trưa</option>
-                      <option value="Tối">Tối</option>
+                      {["Trưa", "Tối"]
+                        .filter((shift) => {
+                          if (!formData.hall_id || !formData.wedding_date)
+                            return true;
+                          return !weddings.some(
+                            (w) =>
+                              w.hall_id?.toString() === formData.hall_id &&
+                              String(w.id) !== String(editingId) &&
+                              w.wedding_date?.slice(0, 10) ===
+                                formData.wedding_date &&
+                              w.shift === shift &&
+                              w.status !== "da_huy",
+                          );
+                        })
+                        .map((shift) => (
+                          <option key={shift} value={shift}>
+                            {shift}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div>
@@ -1585,6 +1602,89 @@ export default function Weddings() {
                     Chưa có dịch vụ
                   </p>
                 )}
+              </div>
+              {/* Tổng tiền */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                  Tổng tiền
+                </h3>
+                {(() => {
+                  const t = viewingWedding.table_count || 0;
+                  const foodPerTable = (viewingWedding.foods || []).reduce(
+                    (s, f) => s + (f.booked_price || f.price || 0),
+                    0,
+                  );
+                  const foodTotal = foodPerTable * t;
+                  const serviceTotal = (viewingWedding.services || []).reduce(
+                    (s, sv) =>
+                      s +
+                      (sv.booked_price || sv.price || 0) * (sv.quantity || 1),
+                    0,
+                  );
+                  const selHall = halls.find(
+                    (h) =>
+                      h.id.toString() === viewingWedding.hall_id?.toString(),
+                  );
+                  const pricePerTable =
+                    viewingWedding.hall_min_price != null &&
+                    viewingWedding.hall_min_price !== ""
+                      ? Number(viewingWedding.hall_min_price)
+                      : selHall?.type_id?.min_price || 0;
+                  const hallTotal = pricePerTable * t;
+                  const total = foodTotal + serviceTotal + hallTotal;
+                  const deposit = Number(viewingWedding.deposit) || 0;
+
+                  return (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-indigo-700">Tiền thức ăn</span>
+                        <span className="font-semibold text-indigo-900">
+                          {foodTotal.toLocaleString("vi-VN")} đ
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-indigo-700">Tiền dịch vụ</span>
+                        <span className="font-semibold text-indigo-900">
+                          {serviceTotal.toLocaleString("vi-VN")} đ
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-indigo-700">
+                          Tiền bàn ({pricePerTable.toLocaleString("vi-VN")} đ ×{" "}
+                          {t} bàn)
+                        </span>
+                        <span className="font-semibold text-indigo-900">
+                          {hallTotal.toLocaleString("vi-VN")} đ
+                        </span>
+                      </div>
+                      <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold text-base">
+                        <span className="text-indigo-800">Tổng tiệc</span>
+                        <span className="text-indigo-900">
+                          {total.toLocaleString("vi-VN")} đ
+                        </span>
+                      </div>
+                      {deposit > 0 && (
+                        <div className="flex justify-between text-amber-700">
+                          <span>Đặt cọc</span>
+                          <span className="font-semibold">
+                            -{deposit.toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+                      )}
+                      {deposit > 0 && (
+                        <div className="border-t border-indigo-200 pt-1 mt-1 flex justify-between font-bold">
+                          <span className="text-indigo-800">Còn lại</span>
+                          <span className="text-indigo-900">
+                            {Math.max(0, total - deposit).toLocaleString(
+                              "vi-VN",
+                            )}{" "}
+                            đ
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
